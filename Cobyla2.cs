@@ -192,7 +192,7 @@ namespace Cureos.Numerics
 
                 con[mp] = f;
                 con[mpp] = resmax;
-                if (ibrnch == 1) goto L_440;
+                //TODO if (ibrnch == 1) goto L_440;
 
                 //     Set the recently calculated function values in a column of DATMAT. This
                 //     array has a column for each vertex of the current simplex, the entries of
@@ -342,9 +342,85 @@ namespace Cureos.Numerics
                     if (vsig[j] < parsig || veta[j] > pareta) iflag = 0;
                 }
 
+                //     If a new vertex is needed to improve acceptability, then decide which
+                //     vertex to drop from the simplex.
+
+                // TODO if (ibrnch == 1 || iflag == 1) goto L_370;
+                jdrop = 0;
+                temp = pareta;
+                for (var j = 1; j <= n; ++j)
+                {
+                    if (veta[j] > temp)
+                    {
+                        jdrop = j;
+                        temp = veta[j];
+                    }
+                }
+                if (jdrop == 0)
+                {
+                    for (var j = 1; j <= n; ++j)
+                    {
+                        if (vsig[j] < temp)
+                        {
+                            jdrop = j;
+                            temp = vsig[j];
+                        }
+                    }
+                }
+
+//     Calculate the step to the new vertex and its sign.
+
+                temp = gamma * rho * vsig[jdrop];
+                Array.Copy(PART2(simi, jdrop, 1, n).Select(item => temp * item).ToArray(), 0, dx, 1, n);
+                var cvmaxp = 0.0;
+                var cvmaxm = 0.0;
+
+                double total = 0.0;
+for (var k = 1; k <= mp; ++k)
+{
+    total = DOT_PRODUCT(PART1(a, 1, n, k), PART(dx, 1, n));
+    if (k < mp)
+    {
+        temp = datmat[k, np];
+        cvmaxp = Math.Max(cvmaxp, -total - temp);
+        cvmaxm = Math.Max(cvmaxm, total - temp);
+    }
+}
+                var dxsign = parmu * (cvmaxp - cvmaxm) > 2.0 * total ? -1.0 : 1.0;
+
+//     Update the elements of SIM and SIMI, and set the next X.
+
+                temp = 0.0;
+for (var i = 1; i <= n; ++i)
+{
+    dx[i] = dxsign * dx[i];
+    sim[i, jdrop] = dx[i];
+    temp += simi[jdrop, i] * dx[i];
+}
+                TRANSFORM2(simi, jdrop, 1, n, item => item / temp);
+for (var j = 1; j <= n; ++j)
+{
+    if (j != jdrop)
+    {
+        temp = DOT_PRODUCT(PART2(simi, j, 1, n), PART(dx, 1, n));
+        //TODO simi(j,1:n) = simi(j,1:n) - temp*simi(jdrop,1:n)
+    }
+    x[j] = sim[j, np] + dx[j];
+}
+                continue;
 
             }
 
+        }
+
+        private static void TRANSFORM1<T>(T[,] array, int from, int to, int j, Func<T, T> func)
+        {
+            for (var i = from; i <= to; ++i) array[i, j] = func(array[i, j]);
+        }
+
+        private static void TRANSFORM2<T>(T[,] array, int i, int from, int to, Func<T, T> func)
+        {
+            for (var j = from; j <= to; ++j) array[i, j] = func(array[i, j]);
         }
 
         private static T[] PART<T>(IList<T> src, int from, int to)
