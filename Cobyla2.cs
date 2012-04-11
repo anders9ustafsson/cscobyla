@@ -345,82 +345,107 @@ namespace Cureos.Numerics
                 //     If a new vertex is needed to improve acceptability, then decide which
                 //     vertex to drop from the simplex.
 
-                // TODO if (ibrnch == 1 || iflag == 1) goto L_370;
-                jdrop = 0;
-                temp = pareta;
-                for (var j = 1; j <= n; ++j)
+                if (ibrnch != 1 && iflag != 1)
                 {
-                    if (veta[j] > temp)
-                    {
-                        jdrop = j;
-                        temp = veta[j];
-                    }
-                }
-                if (jdrop == 0)
-                {
+                    jdrop = 0;
+                    temp = pareta;
                     for (var j = 1; j <= n; ++j)
                     {
-                        if (vsig[j] < temp)
+                        if (veta[j] > temp)
                         {
                             jdrop = j;
-                            temp = vsig[j];
+                            temp = veta[j];
                         }
+                    }
+                    if (jdrop == 0)
+                    {
+                        for (var j = 1; j <= n; ++j)
+                        {
+                            if (vsig[j] < temp)
+                            {
+                                jdrop = j;
+                                temp = vsig[j];
+                            }
+                        }
+                    }
+
+                    //     Calculate the step to the new vertex and its sign.
+
+                    temp = gamma * rho * vsig[jdrop];
+                    Array.Copy(PART2(simi, jdrop, 1, n).Select(item => temp * item).ToArray(), 0, dx, 1, n);
+                    var cvmaxp = 0.0;
+                    var cvmaxm = 0.0;
+
+                    double total = 0.0;
+                    for (var k = 1; k <= mp; ++k)
+                    {
+                        total = DOT_PRODUCT(PART1(a, 1, n, k), PART(dx, 1, n));
+                        if (k < mp)
+                        {
+                            temp = datmat[k, np];
+                            cvmaxp = Math.Max(cvmaxp, -total - temp);
+                            cvmaxm = Math.Max(cvmaxm, total - temp);
+                        }
+                    }
+                    var dxsign = parmu * (cvmaxp - cvmaxm) > 2.0 * total ? -1.0 : 1.0;
+
+                    //     Update the elements of SIM and SIMI, and set the next X.
+
+                    temp = 0.0;
+                    for (var i = 1; i <= n; ++i)
+                    {
+                        dx[i] = dxsign * dx[i];
+                        sim[i, jdrop] = dx[i];
+                        temp += simi[jdrop, i] * dx[i];
+                    }
+                    for (var k = 1; k <= n; ++k) simi[jdrop, k] /= temp;
+
+                    for (var j = 1; j <= n; ++j)
+                    {
+                        if (j != jdrop)
+                        {
+                            temp = DOT_PRODUCT(PART2(simi, j, 1, n), PART(dx, 1, n));
+                            for (var k = 1; k <= n; ++k) simi[j, k] -= temp * simi[jdrop, k];
+                        }
+                        x[j] = sim[j, np] + dx[j];
+                    }
+                    continue;
+                }
+
+                //     Calculate DX = x(*)-x(0).
+                //     Branch if the length of DX is less than 0.5*RHO.
+
+                int ifull;
+                trstlp(n, m, a, con, rho, dx, out ifull);
+                if (ifull == 0)
+                {
+                    temp = PART(dx, 1, n).Select(item => item * item).Sum();
+                    if (temp < 0.25 * rho * rho)
+                    {
+                        ibrnch = 1;
+                        //TODO goto L_550;
                     }
                 }
 
-//     Calculate the step to the new vertex and its sign.
+                //     Predict the change to F and the new maximum constraint violation if the
+                //     variables are altered from x(0) to x(0) + DX.
 
-                temp = gamma * rho * vsig[jdrop];
-                Array.Copy(PART2(simi, jdrop, 1, n).Select(item => temp * item).ToArray(), 0, dx, 1, n);
-                var cvmaxp = 0.0;
-                var cvmaxm = 0.0;
+                var resnew = 0.0;
+                con[mp] = 0.0;
+                for (var k = 1; k <= mp; ++k)
+                {
+                    var total = con[k] - DOT_PRODUCT(PART1(a, 1, n, k), PART(dx, 1, n));
+                    if (k < mp) resnew = Math.Max(resnew, total);
+                }
 
-                double total = 0.0;
-for (var k = 1; k <= mp; ++k)
-{
-    total = DOT_PRODUCT(PART1(a, 1, n, k), PART(dx, 1, n));
-    if (k < mp)
-    {
-        temp = datmat[k, np];
-        cvmaxp = Math.Max(cvmaxp, -total - temp);
-        cvmaxm = Math.Max(cvmaxm, total - temp);
-    }
-}
-                var dxsign = parmu * (cvmaxp - cvmaxm) > 2.0 * total ? -1.0 : 1.0;
-
-//     Update the elements of SIM and SIMI, and set the next X.
-
-                temp = 0.0;
-for (var i = 1; i <= n; ++i)
-{
-    dx[i] = dxsign * dx[i];
-    sim[i, jdrop] = dx[i];
-    temp += simi[jdrop, i] * dx[i];
-}
-                TRANSFORM2(simi, jdrop, 1, n, item => item / temp);
-for (var j = 1; j <= n; ++j)
-{
-    if (j != jdrop)
-    {
-        temp = DOT_PRODUCT(PART2(simi, j, 1, n), PART(dx, 1, n));
-        //TODO simi(j,1:n) = simi(j,1:n) - temp*simi(jdrop,1:n)
-    }
-    x[j] = sim[j, np] + dx[j];
-}
-                continue;
 
             }
 
         }
 
-        private static void TRANSFORM1<T>(T[,] array, int from, int to, int j, Func<T, T> func)
+        private static void trstlp(int i, int i1, double[,] doubles, double[] con, double rho, double[] dx, out int ifull)
         {
-            for (var i = from; i <= to; ++i) array[i, j] = func(array[i, j]);
-        }
-
-        private static void TRANSFORM2<T>(T[,] array, int i, int from, int to, Func<T, T> func)
-        {
-            for (var j = from; j <= to; ++j) array[i, j] = func(array[i, j]);
+            ifull = -1;
         }
 
         private static T[] PART<T>(IList<T> src, int from, int to)

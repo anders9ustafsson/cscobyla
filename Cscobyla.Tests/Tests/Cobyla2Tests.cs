@@ -14,7 +14,7 @@ namespace Cscobyla.Tests
     {
         #region FIELDS
 
-        private const int iprint = 1;
+        private const int iprint = 3;
         private const double rhobeg = 0.5;
 
         #endregion
