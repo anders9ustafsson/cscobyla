@@ -22,7 +22,7 @@ namespace Cscobyla.Tests
         #region TEST CASES
 
         [Test, Sequential]
-        public void TestProblem01([Values(1.0e-6, 1.0e-8)] double rhoend, [Values(1.0e-5, 1.0e-7)] double accepted)
+        public void TestProblem1([Values(1.0e-6, 1.0e-8)] double rhoend, [Values(1.0e-5, 1.0e-7)] double accepted)
         {
             //     Minimization of a simple quadratic function of two variables.
             const int n = 2;
@@ -31,13 +31,13 @@ namespace Cscobyla.Tests
             var xopt = new[] { -1.0, 0.0 };
             var x = Enumerable.Repeat(1.0, n).ToArray();
 
-            Cobyla2.Minimize(Calcfc01, n, m, x, rhobeg, rhoend, iprint, ref maxfun);
+            Cobyla2.Minimize(Calcfc1, n, m, x, rhobeg, rhoend, iprint, ref maxfun);
 
             var error = xopt.Zip(x, (xa, xb) => (xa - xb) * (xa - xb)).Sum();
             Assert.Less(error, accepted);
         }
 
-        public static void Calcfc01(int n, int m, double[] x, out double f, double[] con)
+        public static void Calcfc1(int n, int m, double[] x, out double f, double[] con)
         {
             f = 10.0 * Math.Pow(x[0] + 1.0, 2.0) + Math.Pow(x[1], 2.0);
         }

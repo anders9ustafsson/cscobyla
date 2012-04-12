@@ -1,12 +1,17 @@
 =cscobyla
+
 ==Outline
+
 This is a C# version of Mike Powell's F77 implementation of COBYLA2, available at
        ftp://plato.la.asu.edu/pub/other_software/cobyla2.tar.gz
 
 The C# version is a straightforward translation of Alan Miller's F90 port, available at
        ftp://plato.la.asu.edu/pub/other_software/cobyla2_f90.tar.gz
 
-The file Cobyla2.cs can be included as-is in any C# project.
+Mike Powell's paper on Direct Search methods is available at
+       http://www.damtp.cam.ac.uk/user/na/NA_papers/NA1998_04.ps.gz
+
+The file Cobyla2.cs can be included as-is in any C# project .NET Framework 4.0 or later.
 
 ==The MIT License
 
@@ -25,3 +30,5 @@ FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TOR
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==Revision history
+
+April 12, 2012: Initial document.

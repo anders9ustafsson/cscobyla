@@ -342,8 +342,8 @@ namespace Cureos.Numerics
 
             for (var j = 1; j <= n; ++j)
             {
-                var wsig = PART2(simi, j, 1, n).Aggregate((sum, item) => sum + item * item);
-                var weta = PART1(sim, 1, n, j).Aggregate((sum, item) => sum + item * item);
+                var wsig = 0.0; for (var k = 1; k <= n; ++k) wsig += simi[j, k] * simi[j, k];
+                var weta = 0.0; for (var k = 1; k <= n; ++k) weta += sim[k, j] * sim[k, j];
                 vsig[j] = 1.0 / Math.Sqrt(wsig);
                 veta[j] = Math.Sqrt(weta);
                 if (vsig[j] < parsig || veta[j] > pareta) iflag = 0;
@@ -665,13 +665,17 @@ namespace Cureos.Numerics
 
             ifull = 1;
 
-            var z = new double[1 + n, 1 + n];
+            var z = new double[1 + n,1 + n];
             var zdota = new double[2 + m];
             var vmultc = new double[2 + m];
             var sdirn = new double[1 + n];
             var dxnew = new double[1 + n];
             var vmultd = new double[2 + m];
             var iact = new int[2 + m];
+
+            var nactx = 0;
+            var temp = 0.0;
+            var resold = 0.0;
 
             var icon = 0;
             var mcon = m;
@@ -696,20 +700,17 @@ namespace Cureos.Numerics
             }
             if (resmax == 0.0) goto L_480;
 
-            var nactx = 0;
-            var temp = 0.0;
-
             //     End the current stage of the calculation if 3 consecutive iterations
-        //     have either failed to reduce the best calculated value of the objective
-        //     function or to increase the number of active constraints since the best
-        //     value was calculated. This strategy prevents cycling, but there is a
-        //     remote possibility that it will cause premature termination.
+            //     have either failed to reduce the best calculated value of the objective
+            //     function or to increase the number of active constraints since the best
+            //     value was calculated. This strategy prevents cycling, but there is a
+            //     remote possibility that it will cause premature termination.
 
             L_60:
             var optold = 0.0;
             var icount = 0;
 
-        L_70:
+            L_70:
             var optnew = mcon == m ? resmax : -DOT_PRODUCT(PART(dx, 1, n), PART1(a, 1, n, mcon));
 
             if (icount == 0 || optnew < optold)
@@ -836,44 +837,276 @@ namespace Cureos.Numerics
             }
             if (ratio < 0.0) goto L_490;
 
-//     Revise the Lagrange multipliers and reorder the active constraints so
-//     that the one to be replaced is at the end of the list. Also calculate the
-//     new value of ZDOTA(NACT) and branch if it is not acceptable.
-/*
-DO k=1,nact
-  vmultc(k) = MAX(0.0_dp,vmultc(k) - ratio*vmultd(k))
-END DO
-IF (icon < nact) THEN
-  isave = iact(icon)
-  vsave = vmultc(icon)
-  k = icon
-  170 kp = k + 1
-  kw = iact(kp)
-  sp = DOT_PRODUCT( z(1:n,k), a(1:n,kw) )
-  temp = SQRT(sp*sp + zdota(kp)**2)
-  alpha = zdota(kp)/temp
-  beta = sp/temp
-  zdota(kp) = alpha*zdota(k)
-  zdota(k) = temp
-  DO i=1,n
-    temp = alpha*z(i,kp) + beta*z(i,k)
-    z(i,kp) = alpha*z(i,k) - beta*z(i,kp)
-    z(i,k) = temp
-  END DO
-  iact(k) = kw
-  vmultc(k) = vmultc(kp)
-  k = kp
-  IF (k < nact) GO TO 170
-  iact(k) = isave
-  vmultc(k) = vsave
-END IF
-temp = DOT_PRODUCT( z(1:n,nact), a(1:n,kk) )
-IF (temp == 0.0_dp) GO TO 490
-zdota(nact) = temp
-vmultc(icon) = 0.0_dp
-vmultc(nact) = ratio
-*/
+            //     Revise the Lagrange multipliers and reorder the active constraints so
+            //     that the one to be replaced is at the end of the list. Also calculate the
+            //     new value of ZDOTA(NACT) and branch if it is not acceptable.
 
+            for (var k = 1; k <= nact; ++k)
+                vmultc[k] = Math.Max(0.0, vmultc[k] - ratio * vmultd[k]);
+            if (icon < nact)
+            {
+                var isave = iact[icon];
+                var vsave = vmultc[icon];
+                var k = icon;
+                do
+                {
+                    var kp = k + 1;
+                    var kw = iact[kp];
+                    var sp = DOT_PRODUCT(PART1(z, 1, n, k), PART1(a, 1, n, kw));
+                    temp = Math.Sqrt(sp * sp + zdota[kp] * zdota[kp]);
+                    var alpha = zdota[kp] / temp;
+                    var beta = sp / temp;
+                    zdota[kp] = alpha * zdota[k];
+                    zdota[k] = temp;
+                    for (var i = 1; i <= n; ++i)
+                    {
+                        temp = alpha * z[i, kp] + beta * z[i, k];
+                        z[i, kp] = alpha * z[i, k] - beta * z[i, kp];
+                        z[i, k] = temp;
+                    }
+                    iact[k] = kw;
+                    vmultc[k] = vmultc[kp];
+                    k = kp;
+                } while (k < nact);
+                iact[k] = isave;
+                vmultc[k] = vsave;
+            }
+            temp = DOT_PRODUCT(PART1(z, 1, n, nact), PART1(a, 1, n, kk));
+            if (temp == 0.0) goto L_490;
+            zdota[nact] = temp;
+            vmultc[icon] = 0.0;
+            vmultc[nact] = ratio;
+
+            //     Update IACT and ensure that the objective function continues to be
+            //     treated as the last active constraint when MCON>M.
+
+            L_210:
+            iact[icon] = iact[nact];
+            iact[nact] = kk;
+            if (mcon > m && kk != mcon)
+            {
+                var k = nact - 1;
+                var sp = DOT_PRODUCT(PART1(z, 1, n, k), PART1(a, 1, n, kk));
+                temp = Math.Sqrt(sp * sp + zdota[nact] * zdota[nact]);
+                var alpha = zdota[nact] / temp;
+                var beta = sp / temp;
+                zdota[nact] = alpha * zdota[k];
+                zdota[k] = temp;
+                for (var i = 1; i <= n; ++i)
+                {
+                    temp = alpha * z[i, nact] + beta * z[i, k];
+                    z[i, nact] = alpha * z[i, k] - beta * z[i, nact];
+                    z[i, k] = temp;
+                }
+                iact[nact] = iact[k];
+                iact[k] = kk;
+                temp = vmultc[k];
+                vmultc[k] = vmultc[nact];
+                vmultc[nact] = temp;
+            }
+
+            //     If stage one is in progress, then set SDIRN to the direction of the next
+            //     change to the current vector of variables.
+
+            if (mcon > m) goto L_320;
+            kk = iact[nact];
+            temp = (DOT_PRODUCT(PART(sdirn, 1, n), PART1(a, 1, n, kk)) - 1.0) / zdota[nact];
+            for (var k = 1; k <= n; ++k) sdirn[k] -= temp * z[k, nact];
+            goto L_340;
+
+            //     Delete the constraint that has the index IACT(ICON) from the active set.
+
+            L_260:
+            if (icon < nact)
+            {
+                var isave = iact[icon];
+                var vsave = vmultc[icon];
+                var k = icon;
+                do
+                {
+                    var kp = k + 1;
+                    kk = iact[kp];
+                    var sp = DOT_PRODUCT(PART1(z, 1, n, k), PART1(a, 1, n, kk));
+                    temp = Math.Sqrt(sp * sp + zdota[kp] * zdota[kp]);
+                    var alpha = zdota[kp] / temp;
+                    var beta = sp / temp;
+                    zdota[kp] = alpha * zdota[k];
+                    zdota[k] = temp;
+                    for (var i = 1; i <= n; ++i)
+                    {
+                        temp = alpha * z[i, kp] + beta * z[i, k];
+                        z[i, kp] = alpha * z[i, k] - beta * z[i, kp];
+                        z[i, k] = temp;
+                    }
+                    iact[k] = kk;
+                    vmultc[k] = vmultc[kp];
+                    k = kp;
+                } while (k < nact);
+
+                iact[k] = isave;
+                vmultc[k] = vsave;
+            }
+            --nact;
+
+            //     If stage one is in progress, then set SDIRN to the direction of the next
+            //     change to the current vector of variables.
+
+            if (mcon > m) goto L_320;
+            temp = DOT_PRODUCT(PART(sdirn, 1, n), PART1(z, 1, n, nact + 1));
+            for (var k = 1; k <= n; ++k) sdirn[k] -= temp * z[k, nact + 1];
+            goto L_340;
+
+            //     Pick the next search direction of stage two.
+
+            L_320:
+            temp = 1.0 / zdota[nact];
+            for (var k = 1; k <= n; ++k) sdirn[k] = temp * z[k, nact + 1];
+
+            //     Calculate the step to the boundary of the trust region or take the step
+            //     that reduces RESMAX to zero. The two statements below that include the
+            //     factor 1.0E-6 prevent some harmless underflows that occurred in a test
+            //     calculation. Further, we skip the step if it could be zero within a
+            //     reasonable tolerance for computer rounding errors.
+
+            L_340:
+            var dd = rho * rho;
+            var sd = 0.0;
+            var ss = 0.0;
+            for (var i = 1; i <= n; ++i)
+            {
+                if (Math.Abs(dx[i]) >= 1.0E-6 * rho) dd -= dx[i] * dx[i];
+                sd += dx[i] * sdirn[i];
+                ss += sdirn[i] * sdirn[i];
+            }
+            if (dd <= 0.0) goto L_490;
+            temp = Math.Sqrt(ss * dd);
+            if (Math.Abs(sd) >= 1.0E-6 * temp) temp = Math.Sqrt(ss * dd + sd * sd);
+            var stpful = dd / (temp + sd);
+            var step = stpful;
+            if (mcon == m)
+            {
+                var acca = step + 0.1 * resmax;
+                var accb = step + 0.2 * resmax;
+                if (step >= acca || acca >= accb) goto L_480;
+                step = Math.Min(step, resmax);
+            }
+
+            //     Set DXNEW to the new variables if STEP is the steplength, and reduce
+            //     RESMAX to the corresponding maximum residual if stage one is being done.
+            //     Because DXNEW will be changed during the calculation of some Lagrange
+            //     multipliers, it will be restored to the following value later.
+
+            for (var k = 1; k <= n; ++k) dxnew[k] = dx[k] + step * sdirn[k];
+            if (mcon == m)
+            {
+                resold = resmax;
+                resmax = 0.0;
+                for (var k = 1; k <= nact; ++k)
+                {
+                    kk = iact[k];
+                    temp = b[kk] - DOT_PRODUCT(PART1(a, 1, n, kk), PART(dxnew, 1, n));
+                    resmax = Math.Max(resmax, temp);
+                }
+            }
+
+            //     Set VMULTD to the VMULTC vector that would occur if DX became DXNEW. A
+            //     device is included to force VMULTD(K) = 0.0 if deviations from this value
+            //     can be attributed to computer rounding errors. First calculate the new
+            //     Lagrange multipliers.
+
+            {
+                var k = nact;
+                L_390:
+                var zdotw = 0.0;
+                var zdwabs = 0.0;
+                for (var i = 1; i <= n; ++i)
+                {
+                    temp = z[i, k] * dxnew[i];
+                    zdotw += temp;
+                    zdwabs += Math.Abs(temp);
+                }
+                var acca = zdwabs + 0.1 * Math.Abs(zdotw);
+                var accb = zdwabs + 0.2 * Math.Abs(zdotw);
+                if (zdwabs >= acca || acca >= accb) zdotw = 0.0;
+                vmultd[k] = zdotw / zdota[k];
+                if (k >= 2)
+                {
+                    kk = iact[k];
+                    for (var i = 1; i <= n; ++i) dxnew[i] -= vmultd[k] * a[i, kk];
+                    --k;
+                    goto L_390;
+                }
+                if (mcon > m) vmultd[nact] = Math.Max(0.0, vmultd[nact]);
+            }
+
+            //     Complete VMULTC by finding the new constraint residuals.
+
+            for (var k = 1; k <= n; ++k) dxnew[k] = dx[k] + step * sdirn[k];
+            if (mcon > nact)
+            {
+                var kl = nact + 1;
+                for (var k = kl; k <= mcon; ++k)
+                {
+                    kk = iact[k];
+                    var total = resmax - b[kk];
+                    var sumabs = resmax + Math.Abs(b[kk]);
+                    for (var i = 1; i <= n; ++i)
+                    {
+                        temp = a[i, kk] * dxnew[i];
+                        total += temp;
+                        sumabs += Math.Abs(temp);
+                    }
+                    var acca = sumabs + 0.1 * Math.Abs(total);
+                    var accb = sumabs + 0.2 * Math.Abs(total);
+                    if (sumabs >= acca || acca >= accb) total = 0.0;
+                    vmultd[k] = total;
+                }
+            }
+
+            //     Calculate the fraction of the step from DX to DXNEW that will be taken.
+
+            ratio = 1.0;
+            icon = 0;
+            for (var k = 1; k <= mcon; ++k)
+            {
+                if (vmultd[k] < 0.0)
+                {
+                    temp = vmultc[k] / (vmultc[k] - vmultd[k]);
+                    if (temp < ratio)
+                    {
+                        ratio = temp;
+                        icon = k;
+                    }
+                }
+            }
+
+            //     Update DX, VMULTC and RESMAX.
+
+            temp = 1.0 - ratio;
+            for (var k = 1; k <= n; ++k) dx[k] = temp * dx[k] + ratio * dxnew[k];
+            for (var k = 1; k <= mcon; ++k)
+                vmultc[k] = Math.Max(0.0, temp * vmultc[k] + ratio * vmultd[k]);
+            if (mcon == m) resmax = resold + ratio * (resmax - resold);
+
+            //     If the full step is not acceptable then begin another iteration.
+            //     Otherwise switch to stage two or end the calculation.
+
+            if (icon > 0) goto L_70;
+            if (step == stpful) return;
+
+            L_480:
+            mcon = m + 1;
+            icon = mcon;
+            iact[mcon] = mcon;
+            vmultc[mcon] = 0.0;
+            goto L_60;
+
+            //     We employ any freedom that may be available to reduce the objective
+            //     function before returning a DX whose length is less than RHO.
+
+            L_490:
+            if (mcon == m) goto L_480;
+            ifull = 0;
         }
 
         private static T[] PART<T>(IList<T> src, int from, int to)
@@ -909,450 +1142,3 @@ vmultc(nact) = ratio
     }
 
 }
-/*
-
-SUBROUTINE trstlp (n, m, a, b, rho, dx, ifull)
-
-// N.B. Arguments Z, ZDOTA, VMULTC, SDIRN, DXNEW, VMULTD & IACT have been removed.
-
-INTEGER, INTENT(IN)     :: n
-INTEGER, INTENT(IN)     :: m
-REAL (dp), INTENT(IN)   :: a(:,:)
-REAL (dp), INTENT(IN)   :: b(:)
-REAL (dp), INTENT(IN)   :: rho
-REAL (dp), INTENT(OUT)  :: dx(:)
-INTEGER, INTENT(OUT)    :: ifull
-
-//     This subroutine calculates an N-component vector DX by applying the
-//     following two stages. In the first stage, DX is set to the shortest
-//     vector that minimizes the greatest violation of the constraints
-//       A(1,K)*DX(1)+A(2,K)*DX(2)+...+A(N,K)*DX(N) .GE. B(K), K = 2,3,...,M,
-//     subject to the Euclidean length of DX being at most RHO. If its length is
-//     strictly less than RHO, then we use the resultant freedom in DX to
-//     minimize the objective function
-//              -A(1,M+1)*DX(1) - A(2,M+1)*DX(2) - ... - A(N,M+1)*DX(N)
-//     subject to no increase in any greatest constraint violation. This
-//     notation allows the gradient of the objective function to be regarded as
-//     the gradient of a constraint. Therefore the two stages are distinguished
-//     by MCON .EQ. M and MCON .GT. M respectively. It is possible that a
-//     degeneracy may prevent DX from attaining the target length RHO. Then the
-//     value IFULL = 0 would be set, but usually IFULL = 1 on return.
-
-//     In general NACT is the number of constraints in the active set and
-//     IACT(1),...,IACT(NACT) are their indices, while the remainder of IACT
-//     contains a permutation of the remaining constraint indices.  Further, Z
-//     is an orthogonal matrix whose first NACT columns can be regarded as the
-//     result of Gram-Schmidt applied to the active constraint gradients.  For
-//     J = 1,2,...,NACT, the number ZDOTA(J) is the scalar product of the J-th
-//     column of Z with the gradient of the J-th active constraint.  DX is the
-//     current vector of variables and here the residuals of the active
-//     constraints should be zero. Further, the active constraints have
-//     nonnegative Lagrange multipliers that are held at the beginning of
-//     VMULTC. The remainder of this vector holds the residuals of the inactive
-//     constraints at DX, the ordering of the components of VMULTC being in
-//     agreement with the permutation of the indices of the constraints that is
-//     in IACT. All these residuals are nonnegative, which is achieved by the
-//     shift RESMAX that makes the least residual zero.
-
-//     Initialize Z and some other variables. The value of RESMAX will be
-//     appropriate to DX = 0, while ICON will be the index of a most violated
-//     constraint if RESMAX is positive. Usually during the first stage the
-//     vector SDIRN gives a search direction that reduces all the active
-//     constraint violations by one simultaneously.
-
-// Local variables
-
-REAL (dp) :: z(n,n), zdota(m+1), vmultc(m+1), sdirn(n), dxnew(n), vmultd(m+1)
-REAL (dp) :: acca, accb, alpha, beta, dd, optnew, optold, ratio, resmax,   &
-             resold, sd, sp, spabs, ss, step, stpful, sumabs, temp, tempa, &
-             tot, total, vsave, zdotv, zdotw, zdvabs, zdwabs
-INTEGER   :: i, iact(m+1), icon, icount, isave, k, kk, kl, kp, kw, mcon,   &
-             nact, nactx
-
-ifull = 1
-mcon = m
-nact = 0
-resmax = 0.0_dp
-DO i=1,n
-  z(i,1:n) = 0.0_dp
-  z(i,i) = 1.0_dp
-  dx(i) = 0.0_dp
-END DO
-IF (m >= 1) THEN
-  DO k=1,m
-    IF (b(k) > resmax) THEN
-      resmax = b(k)
-      icon = k
-    END IF
-  END DO
-  DO k=1,m
-    iact(k) = k
-    vmultc(k) = resmax - b(k)
-  END DO
-END IF
-IF (resmax == 0.0_dp) GO TO 480
-sdirn(1:n) = 0.0_dp
-
-//     End the current stage of the calculation if 3 consecutive iterations
-//     have either failed to reduce the best calculated value of the objective
-//     function or to increase the number of active constraints since the best
-//     value was calculated. This strategy prevents cycling, but there is a
-//     remote possibility that it will cause premature termination.
-
-60 optold = 0.0_dp
-icount = 0
-70 IF (mcon == m) THEN
-  optnew = resmax
-ELSE
-  optnew = - DOT_PRODUCT( dx(1:n), a(1:n,mcon) )
-END IF
-IF (icount == 0 .OR. optnew < optold) THEN
-  optold = optnew
-  nactx = nact
-  icount = 3
-ELSE IF (nact > nactx) THEN
-  nactx = nact
-  icount = 3
-ELSE
-  icount = icount - 1
-  IF (icount == 0) GO TO 490
-END IF
-
-//     If ICON exceeds NACT, then we add the constraint with index IACT(ICON) to
-//     the active set. Apply Givens rotations so that the last N-NACT-1 columns
-//     of Z are orthogonal to the gradient of the new constraint, a scalar
-//     product being set to zero if its nonzero value could be due to computer
-//     rounding errors. The array DXNEW is used for working space.
-
-IF (icon <= nact) GO TO 260
-kk = iact(icon)
-dxnew(1:n) = a(1:n,kk)
-tot = 0.0_dp
-k = n
-100 IF (k > nact) THEN
-  sp = 0.0_dp
-  spabs = 0.0_dp
-  DO i=1,n
-    temp = z(i,k)*dxnew(i)
-    sp = sp + temp
-    spabs = spabs + ABS(temp)
-  END DO
-  acca = spabs + 0.1_dp*ABS(sp)
-  accb = spabs + 0.2_dp*ABS(sp)
-  IF (spabs >= acca .OR. acca >= accb) sp = 0.0_dp
-  IF (tot == 0.0_dp) THEN
-    tot = sp
-  ELSE
-    kp = k + 1
-    temp = SQRT(sp*sp + tot*tot)
-    alpha = sp/temp
-    beta = tot/temp
-    tot = temp
-    DO i=1,n
-      temp = alpha*z(i,k) + beta*z(i,kp)
-      z(i,kp) = alpha*z(i,kp) - beta*z(i,k)
-      z(i,k) = temp
-    END DO
-  END IF
-  k = k - 1
-  GO TO 100
-END IF
-
-//     Add the new constraint if this can be done without a deletion from the
-//     active set.
-
-IF (tot /= 0.0_dp) THEN
-  nact = nact + 1
-  zdota(nact) = tot
-  vmultc(icon) = vmultc(nact)
-  vmultc(nact) = 0.0_dp
-  GO TO 210
-END IF
-
-//     The next instruction is reached if a deletion has to be made from the
-//     active set in order to make room for the new active constraint, because
-//     the new constraint gradient is a linear combination of the gradients of
-//     the old active constraints.  Set the elements of VMULTD to the multipliers
-//     of the linear combination.  Further, set IOUT to the index of the
-//     constraint to be deleted, but branch if no suitable index can be found.
-
-ratio = -1.0_dp
-k = nact
-130 zdotv = 0.0_dp
-zdvabs = 0.0_dp
-DO i=1,n
-  temp = z(i,k)*dxnew(i)
-  zdotv = zdotv + temp
-  zdvabs = zdvabs + ABS(temp)
-END DO
-acca = zdvabs + 0.1_dp*ABS(zdotv)
-accb = zdvabs + 0.2_dp*ABS(zdotv)
-IF (zdvabs < acca .AND. acca < accb) THEN
-  temp = zdotv/zdota(k)
-  IF (temp > 0.0_dp .AND. iact(k) <= m) THEN
-    tempa = vmultc(k)/temp
-    IF (ratio < 0.0_dp .OR. tempa < ratio) THEN
-      ratio = tempa
-    END IF
-  END IF
-  IF (k >= 2) THEN
-    kw = iact(k)
-    dxnew(1:n) = dxnew(1:n) - temp*a(1:n,kw)
-  END IF
-  vmultd(k) = temp
-ELSE
-  vmultd(k) = 0.0_dp
-END IF
-k = k - 1
-IF (k > 0) GO TO 130
-IF (ratio < 0.0_dp) GO TO 490
-
-//     Revise the Lagrange multipliers and reorder the active constraints so
-//     that the one to be replaced is at the end of the list. Also calculate the
-//     new value of ZDOTA(NACT) and branch if it is not acceptable.
-
-DO k=1,nact
-  vmultc(k) = MAX(0.0_dp,vmultc(k) - ratio*vmultd(k))
-END DO
-IF (icon < nact) THEN
-  isave = iact(icon)
-  vsave = vmultc(icon)
-  k = icon
-  170 kp = k + 1
-  kw = iact(kp)
-  sp = DOT_PRODUCT( z(1:n,k), a(1:n,kw) )
-  temp = SQRT(sp*sp + zdota(kp)**2)
-  alpha = zdota(kp)/temp
-  beta = sp/temp
-  zdota(kp) = alpha*zdota(k)
-  zdota(k) = temp
-  DO i=1,n
-    temp = alpha*z(i,kp) + beta*z(i,k)
-    z(i,kp) = alpha*z(i,k) - beta*z(i,kp)
-    z(i,k) = temp
-  END DO
-  iact(k) = kw
-  vmultc(k) = vmultc(kp)
-  k = kp
-  IF (k < nact) GO TO 170
-  iact(k) = isave
-  vmultc(k) = vsave
-END IF
-temp = DOT_PRODUCT( z(1:n,nact), a(1:n,kk) )
-IF (temp == 0.0_dp) GO TO 490
-zdota(nact) = temp
-vmultc(icon) = 0.0_dp
-vmultc(nact) = ratio
-
-//     Update IACT and ensure that the objective function continues to be
-//     treated as the last active constraint when MCON>M.
-
-210 iact(icon) = iact(nact)
-iact(nact) = kk
-IF (mcon > m .AND. kk /= mcon) THEN
-  k = nact - 1
-  sp = DOT_PRODUCT( z(1:n,k), a(1:n,kk) )
-  temp = SQRT(sp*sp + zdota(nact)**2)
-  alpha = zdota(nact)/temp
-  beta = sp/temp
-  zdota(nact) = alpha*zdota(k)
-  zdota(k) = temp
-  DO i=1,n
-    temp = alpha*z(i,nact) + beta*z(i,k)
-    z(i,nact) = alpha*z(i,k) - beta*z(i,nact)
-    z(i,k) = temp
-  END DO
-  iact(nact) = iact(k)
-  iact(k) = kk
-  temp = vmultc(k)
-  vmultc(k) = vmultc(nact)
-  vmultc(nact) = temp
-END IF
-
-//     If stage one is in progress, then set SDIRN to the direction of the next
-//     change to the current vector of variables.
-
-IF (mcon > m) GO TO 320
-kk = iact(nact)
-temp = DOT_PRODUCT( sdirn(1:n), a(1:n,kk) )
-temp = temp - 1.0_dp
-temp = temp/zdota(nact)
-sdirn(1:n) = sdirn(1:n) - temp*z(1:n,nact)
-GO TO 340
-
-//     Delete the constraint that has the index IACT(ICON) from the active set.
-
-260 IF (icon < nact) THEN
-  isave = iact(icon)
-  vsave = vmultc(icon)
-  k = icon
-  DO
-    kp = k + 1
-    kk = iact(kp)
-    sp = DOT_PRODUCT( z(1:n,k), a(1:n,kk) )
-    temp = SQRT(sp*sp + zdota(kp)**2)
-    alpha = zdota(kp)/temp
-    beta = sp/temp
-    zdota(kp) = alpha*zdota(k)
-    zdota(k) = temp
-    DO i=1,n
-      temp = alpha*z(i,kp) + beta*z(i,k)
-      z(i,kp) = alpha*z(i,k) - beta*z(i,kp)
-      z(i,k) = temp
-    END DO
-    iact(k) = kk
-    vmultc(k) = vmultc(kp)
-    k = kp
-    IF (k >= nact) EXIT
-  END DO
-  iact(k) = isave
-  vmultc(k) = vsave
-END IF
-nact = nact - 1
-
-//     If stage one is in progress, then set SDIRN to the direction of the next
-//     change to the current vector of variables.
-
-IF (mcon > m) GO TO 320
-temp = DOT_PRODUCT( sdirn(1:n), z(1:n,nact+1) )
-sdirn(1:n) = sdirn(1:n) - temp*z(1:n,nact+1)
-GO TO 340
-
-//     Pick the next search direction of stage two.
-
-320 temp = 1.0_dp/zdota(nact)
-sdirn(1:n) = temp*z(1:n,nact)
-
-//     Calculate the step to the boundary of the trust region or take the step
-//     that reduces RESMAX to zero. The two statements below that include the
-//     factor 1.0E-6 prevent some harmless underflows that occurred in a test
-//     calculation. Further, we skip the step if it could be zero within a
-//     reasonable tolerance for computer rounding errors.
-
-340 dd = rho*rho
-sd = 0.0_dp
-ss = 0.0_dp
-DO i=1,n
-  IF (ABS(dx(i)) >= 1.0E-6*rho) dd = dd - dx(i)**2
-  sd = sd + dx(i)*sdirn(i)
-  ss = ss + sdirn(i)**2
-END DO
-IF (dd <= 0.0_dp) GO TO 490
-temp = SQRT(ss*dd)
-IF (ABS(sd) >= 1.0E-6*temp) temp = SQRT(ss*dd + sd*sd)
-stpful = dd/(temp + sd)
-step = stpful
-IF (mcon == m) THEN
-  acca = step + 0.1_dp*resmax
-  accb = step + 0.2_dp*resmax
-  IF (step >= acca .OR. acca >= accb) GO TO 480
-  step = MIN(step,resmax)
-END IF
-
-//     Set DXNEW to the new variables if STEP is the steplength, and reduce
-//     RESMAX to the corresponding maximum residual if stage one is being done.
-//     Because DXNEW will be changed during the calculation of some Lagrange
-//     multipliers, it will be restored to the following value later.
-
-dxnew(1:n) = dx(1:n) + step*sdirn(1:n)
-IF (mcon == m) THEN
-  resold = resmax
-  resmax = 0.0_dp
-  DO k=1,nact
-    kk = iact(k)
-    temp = b(kk) - DOT_PRODUCT( a(1:n,kk), dxnew(1:n) )
-    resmax = MAX(resmax,temp)
-  END DO
-END IF
-
-//     Set VMULTD to the VMULTC vector that would occur if DX became DXNEW. A
-//     device is included to force VMULTD(K) = 0.0 if deviations from this value
-//     can be attributed to computer rounding errors. First calculate the new
-//     Lagrange multipliers.
-
-k = nact
-390 zdotw = 0.0_dp
-zdwabs = 0.0_dp
-DO i=1,n
-  temp = z(i,k)*dxnew(i)
-  zdotw = zdotw + temp
-  zdwabs = zdwabs + ABS(temp)
-END DO
-acca = zdwabs + 0.1_dp*ABS(zdotw)
-accb = zdwabs + 0.2_dp*ABS(zdotw)
-IF (zdwabs >= acca .OR. acca >= accb) zdotw = 0.0_dp
-vmultd(k) = zdotw / zdota(k)
-IF (k >= 2) THEN
-  kk = iact(k)
-  dxnew(1:n) = dxnew(1:n) - vmultd(k)*a(1:n,kk)
-  k = k - 1
-  GO TO 390
-END IF
-IF (mcon > m) vmultd(nact) = MAX(0.0_dp,vmultd(nact))
-
-//     Complete VMULTC by finding the new constraint residuals.
-
-dxnew(1:n) = dx(1:n) + step*sdirn(1:n)
-IF (mcon > nact) THEN
-  kl = nact + 1
-  DO k=kl,mcon
-    kk = iact(k)
-    total = resmax - b(kk)
-    sumabs = resmax + ABS(b(kk))
-    DO i=1,n
-      temp = a(i,kk)*dxnew(i)
-      total = total + temp
-      sumabs = sumabs + ABS(temp)
-    END DO
-    acca = sumabs + 0.1*ABS(total)
-    accb = sumabs + 0.2*ABS(total)
-    IF (sumabs >= acca .OR. acca >= accb) total = 0.0
-    vmultd(k) = total
-  END DO
-END IF
-
-//     Calculate the fraction of the step from DX to DXNEW that will be taken.
-
-ratio = 1.0_dp
-icon = 0
-DO k=1,mcon
-  IF (vmultd(k) < 0.0_dp) THEN
-    temp = vmultc(k)/(vmultc(k) - vmultd(k))
-    IF (temp < ratio) THEN
-      ratio = temp
-      icon = k
-    END IF
-  END IF
-END DO
-
-//     Update DX, VMULTC and RESMAX.
-
-temp = 1.0_dp - ratio
-dx(1:n) = temp*dx(1:n) + ratio*dxnew(1:n)
-DO k=1,mcon
-  vmultc(k) = MAX(0.0_dp,temp*vmultc(k) + ratio*vmultd(k))
-END DO
-IF (mcon == m) resmax = resold + ratio*(resmax - resold)
-
-//     If the full step is not acceptable then begin another iteration.
-//     Otherwise switch to stage two or end the calculation.
-
-IF (icon > 0) GO TO 70
-IF (step == stpful) GO TO 500
-480 mcon = m + 1
-icon = mcon
-iact(mcon) = mcon
-vmultc(mcon) = 0.0_dp
-GO TO 60
-
-//     We employ any freedom that may be available to reduce the objective
-//     function before returning a DX whose length is less than RHO.
-
-490 IF (mcon == m) GO TO 480
-ifull = 0
-
-500 RETURN
-END SUBROUTINE trstlp
-
-END MODULE cobyla2
-*/
