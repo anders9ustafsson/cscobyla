@@ -22,24 +22,39 @@ namespace Cscobyla.Tests
         #region TEST CASES
 
         [Test, Sequential]
-        public void TestProblem1([Values(1.0e-6, 1.0e-8)] double rhoend, [Values(1.0e-5, 1.0e-7)] double accepted)
+        public void TestProblem1([Values(1.0e-6, 1.0e-8)] double rhoend, [Values(1.0e-5, 1.0e-7)] double acceptedError)
         {
             //     Minimization of a simple quadratic function of two variables.
-            const int n = 2;
-            const int m = 0;
-            var maxfun = 3500;
-            var xopt = new[] { -1.0, 0.0 };
-            var x = Enumerable.Repeat(1.0, n).ToArray();
-
-            Cobyla2.Minimize(Calcfc1, n, m, x, rhobeg, rhoend, iprint, ref maxfun);
-
-            var error = xopt.Zip(x, (xa, xb) => (xa - xb) * (xa - xb)).Sum();
-            Assert.Less(error, accepted);
+            InvokeTestProblem(Calcfc1, 2, 0, rhoend, new[] { -1.0, 0.0 }, acceptedError);
         }
 
         public static void Calcfc1(int n, int m, double[] x, out double f, double[] con)
         {
             f = 10.0 * Math.Pow(x[0] + 1.0, 2.0) + Math.Pow(x[1], 2.0);
+        }
+
+        [Test, Sequential]
+        public void TestProblem2([Values(1.0e-6, 1.0e-8)] double rhoend, [Values(1.0e-5, 1.0e-7)] double acceptedError)
+        {
+            //     Minimization of a simple quadratic function of two variables.
+            InvokeTestProblem(Calcfc2, 2, 1, rhoend, new[] { Math.Sqrt(0.5), -Math.Sqrt(0.5) }, acceptedError);
+        }
+
+        public static void Calcfc2(int n, int m, double[] x, out double f, double[] con)
+        {
+            f = x[0] * x[1];
+            con[0] = 1.0 - x[0] * x[0] - x[1] * x[1];
+        }
+
+        public void InvokeTestProblem(CalcfcDelegate calcfc, int n, int m, double rhoend, double[] xopt, double acceptedError)
+        {
+            var x = Enumerable.Repeat(1.0, n).ToArray();
+
+            var maxfun = 3500;
+            Cobyla2.Minimize(calcfc, n, m, x, rhobeg, rhoend, iprint, ref maxfun);
+
+            var error = xopt.Zip(x, (xa, xb) => (xa - xb) * (xa - xb)).Sum();
+            Assert.Less(error, acceptedError);
         }
 
         #endregion

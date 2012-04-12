@@ -960,7 +960,7 @@ namespace Cureos.Numerics
 
             L_320:
             temp = 1.0 / zdota[nact];
-            for (var k = 1; k <= n; ++k) sdirn[k] = temp * z[k, nact + 1];
+            for (var k = 1; k <= n; ++k) sdirn[k] = temp * z[k, nact];
 
             //     Calculate the step to the boundary of the trust region or take the step
             //     that reduces RESMAX to zero. The two statements below that include the
