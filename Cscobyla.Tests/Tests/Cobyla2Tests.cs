@@ -8,7 +8,7 @@ using System.Linq;
 using Cureos.Numerics;
 using NUnit.Framework;
 
-using TestCaseType = System.Tuple<Cureos.Numerics.CalcfcDelegate, int, int, double[], double>;
+using TestCaseType = System.Tuple<string, Cureos.Numerics.CalcfcDelegate, int, int, double[], double>;
 
 namespace Cscobyla.Tests
 {
@@ -30,16 +30,25 @@ namespace Cscobyla.Tests
         {
             get
             {
-                yield return Tuple.Create((CalcfcDelegate)calcfc1, 2, 0, new[] { -1.0, 0.0 }, 1.0e-5);
                 yield return
-                    Tuple.Create((CalcfcDelegate)calcfc2, 2, 1, new[] {Math.Sqrt(0.5), -Math.Sqrt(0.5)}, 1.0e-5);
+                    Tuple.Create("1 (Simple quadratic)", (CalcfcDelegate)calcfc1, 2, 0, new[] {-1.0, 0.0}, 1.0e-5);
                 yield return
-                    Tuple.Create((CalcfcDelegate)calcfc3, 3, 1,
+                    Tuple.Create("2 (2D unit circle calculation)", (CalcfcDelegate)calcfc2, 2, 1,
+                                 new[] {Math.Sqrt(0.5), -Math.Sqrt(0.5)}, 1.0e-5);
+                yield return
+                    Tuple.Create("3 (3D ellipsoid calculation)", (CalcfcDelegate)calcfc3, 3, 1,
                                  new[] {1.0 / Math.Sqrt(3.0), 1.0 / Math.Sqrt(6.0), -1.0 / 3.0}, 1.0e-5);
-                yield return Tuple.Create((CalcfcDelegate)calcfc4, 2, 0, new[] { -1.0, 1.0 }, 2.0e-5);
-                yield return Tuple.Create((CalcfcDelegate)calcfc5, 2, 0, new[] { -1.0, 1.0 }, 2.0e-4);
                 yield return
-                    Tuple.Create((CalcfcDelegate)calcfc6, 2, 2, new[] { Math.Sqrt(0.5), Math.Sqrt(0.5) }, 1.0e-6);
+                    Tuple.Create("4 (Weak Rosenbrock)", (CalcfcDelegate)calcfc4, 2, 0, new[] {-1.0, 1.0}, 2.0e-5);
+                yield return
+                    Tuple.Create("5 (Intermediate Rosenbrock)", (CalcfcDelegate)calcfc5, 2, 0, new[] {-1.0, 1.0}, 2.0e-4)
+                    ;
+                yield return
+                    Tuple.Create("6 (Equation (9.1.15) in Fletcher's book)", (CalcfcDelegate)calcfc6, 2, 2,
+                                 new[] {Math.Sqrt(0.5), Math.Sqrt(0.5)}, 1.0e-6);
+                yield return
+                    Tuple.Create("7 (Equation (14.4.2) in Fletcher)", (CalcfcDelegate)calcfc7, 3, 3,
+                                 new[] {0.0, -3.0, -3.0}, 1.0e-8);
             }
         }
 
@@ -50,16 +59,21 @@ namespace Cscobyla.Tests
         [TestCaseSource("TestCases")]
         public void RunTestProblem(TestCaseType testCase)
         {
-            var calcfc = testCase.Item1;
-            var n = testCase.Item2;
-            var m = testCase.Item3;
-            var xopt = testCase.Item4;
-            var accepted = testCase.Item5;
+            var problem = testCase.Item1;
+            var calcfc = testCase.Item2;
+            var n = testCase.Item3;
+            var m = testCase.Item4;
+            var xopt = testCase.Item5;
+            var accepted = testCase.Item6;
+
+            Console.WriteLine("{0}Output from test problem {1}", Environment.NewLine, problem);
 
             var error1 = InvokeTestProblem(calcfc, n, m, rhoend1, xopt);
             Assert.Less(error1, accepted);
             var error2 = InvokeTestProblem(calcfc, n, m, rhoend2, xopt);
             Assert.Less(error2, error1);
+
+            Console.WriteLine("{0}--------------------------------------------", Environment.NewLine);
         }
 
         public double InvokeTestProblem(CalcfcDelegate calcfc, int n, int m, double rhoend, double[] xopt)
@@ -67,7 +81,11 @@ namespace Cscobyla.Tests
             var x = Enumerable.Repeat(1.0, n).ToArray();
             var maxfun = 3500;
             Cobyla2.Minimize(calcfc, n, m, x, rhobeg, rhoend, iprint, ref maxfun);
-            return xopt.Zip(x, (xa, xb) => (xa - xb) * (xa - xb)).Sum();
+
+            var error = xopt.Select((xo, i) => Math.Pow(xo - x[i], 2.0)).Sum();
+            Console.WriteLine("{0}Least squares error in variables = {1,16:E6}", Environment.NewLine, error);
+
+            return error;
         }
 
         /// <summary>
@@ -120,6 +138,17 @@ namespace Cscobyla.Tests
             f = -x[0] - x[1];
             con[0] = x[1] - x[0] * x[0];
             con[1] = 1.0 - x[0] * x[0] - x[1] * x[1];
+        }
+
+        /// <summary>
+        /// Test problem 7 (Equation (14.4.2) in Fletcher's book)
+        /// </summary>
+        public static void calcfc7(int n, int m, double[] x, out double f, double[] con)
+        {
+            f = x[2];
+            con[0] = 5.0 * x[0] - x[1] + x[2];
+            con[1] = x[2] - x[0] * x[0] - x[1] * x[1] - 4.0 * x[1];
+            con[2] = x[2] - 5.0 * x[0] - x[1];
         }
 
         #endregion

@@ -25,7 +25,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Cureos.Numerics
 {
@@ -39,7 +38,8 @@ namespace Cureos.Numerics
     {
         #region FIELDS
 
-        private const string IterationResultFormatter = "NFVALS = {0,5}   F = {1,13:F6}    MAXCV = {2,13:F6}";
+        private static readonly string LF = Environment.NewLine;
+        private static readonly string IterationResultFormatter = LF + "NFVALS = {0,5}   F = {1,13:F6}    MAXCV = {2,13:F6}";
 
         #endregion
         
@@ -164,7 +164,7 @@ namespace Cureos.Numerics
             var dx = new double[1 + n];
             var w = new double[1 + n];
 
-            if (iprint >= 2) Console.WriteLine("The initial value of RHO is {0,13:F6} and PARMU is set to zero.", rho);
+            if (iprint >= 2) Console.WriteLine(LF + "The initial value of RHO is {0,13:F6} and PARMU is set to zero.", rho);
 
             var nfvals = 0;
             var temp = 1.0 / rho;
@@ -187,7 +187,7 @@ namespace Cureos.Numerics
             if (nfvals >= maxfun && nfvals > 0)
             {
                 if (iprint >= 1)
-                    Console.WriteLine("Return from subroutine COBYLA because the MAXFUN limit has been reached.");
+                    Console.WriteLine(LF + "Return from subroutine COBYLA because the MAXFUN limit has been reached.");
                 goto L_600;
             }
 
@@ -199,7 +199,7 @@ namespace Cureos.Numerics
             if (nfvals == iprint - 1 || iprint == 3)
             {
                 Console.WriteLine(IterationResultFormatter, nfvals, f, resmax);
-                Console.WriteLine("X = {0}", String.Join("; ", x.Skip(1)));
+                Console.WriteLine("X = {0}", x.PART(1, n).FORMAT());
             }
 
             con[mp] = f;
@@ -308,14 +308,14 @@ namespace Cureos.Numerics
             {
                 for (var j = 1; j <= n; ++j)
                 {
-                    temp = DOT_PRODUCT(PART2(simi, i, 1, n), PART1(sim, 1, n, j)) - (i == j ? 1.0 : 0.0);
+                    temp = DOT_PRODUCT(simi.ROW(i).PART(1, n), sim.COL(j).PART(1, n)) - (i == j ? 1.0 : 0.0);
                     error = Math.Max(error, Math.Abs(temp));
                 }
             }
             if (error > 0.1)
             {
                 if (iprint >= 1)
-                    Console.WriteLine("Return from subroutine COBYLA because rounding errors are becoming damaging.");
+                    Console.WriteLine(LF + "Return from subroutine COBYLA because rounding errors are becoming damaging.");
                 goto L_600;
             }
 
@@ -331,7 +331,7 @@ namespace Cureos.Numerics
 
                 for (var i = 1; i <= n; ++i)
                 {
-                    a[i, k] = (k == mp ? -1.0 : 1.0) * DOT_PRODUCT(PART(w, 1, n), PART1(simi, 1, n, i));
+                    a[i, k] = (k == mp ? -1.0 : 1.0) * DOT_PRODUCT(w.PART(1, n), simi.COL(i).PART(1, n));
                 }
             }
 
@@ -388,7 +388,7 @@ namespace Cureos.Numerics
                 total = 0.0;
                 for (var k = 1; k <= mp; ++k)
                 {
-                    total = DOT_PRODUCT(PART1(a, 1, n, k), PART(dx, 1, n));
+                    total = DOT_PRODUCT(a.COL(k).PART(1, n), dx.PART(1, n));
                     if (k < mp)
                     {
                         temp = datmat[k, np];
@@ -413,7 +413,7 @@ namespace Cureos.Numerics
                 {
                     if (j != jdrop)
                     {
-                        temp = DOT_PRODUCT(PART2(simi, j, 1, n), PART(dx, 1, n));
+                        temp = DOT_PRODUCT(simi.ROW(j).PART(1, n), dx.PART(1, n));
                         for (var k = 1; k <= n; ++k) simi[j, k] -= temp * simi[jdrop, k];
                     }
                     x[j] = sim[j, np] + dx[j];
@@ -443,7 +443,7 @@ namespace Cureos.Numerics
             con[mp] = 0.0;
             for (var k = 1; k <= mp; ++k)
             {
-                total = con[k] - DOT_PRODUCT(PART1(a, 1, n, k), PART(dx, 1, n));
+                total = con[k] - DOT_PRODUCT(a.COL(k).PART(1, n), dx.PART(1, n));
                 if (k < mp) resnew = Math.Max(resnew, total);
             }
 
@@ -457,7 +457,7 @@ namespace Cureos.Numerics
             if (parmu < 1.5 * barmu)
             {
                 parmu = 2.0 * barmu;
-                if (iprint >= 2) Console.WriteLine("Increase in PARMU to {0,13:F6}", parmu);
+                if (iprint >= 2) Console.WriteLine(LF + "Increase in PARMU to {0,13:F6}", parmu);
                 var phi = datmat[mp, np] + parmu * datmat[mpp, np];
                 for (var j = 1; j <= n; ++j)
                 {
@@ -493,7 +493,7 @@ namespace Cureos.Numerics
             jdrop = 0;
             for (var j = 1; j <= n; ++j)
             {
-                temp = Math.Abs(DOT_PRODUCT(PART2(simi, j, 1, n), PART(dx, 1, n)));
+                temp = Math.Abs(DOT_PRODUCT(simi.ROW(j).PART(1, n), dx.PART(1, n)));
                 if (temp > ratio)
                 {
                     jdrop = j;
@@ -539,7 +539,7 @@ namespace Cureos.Numerics
             {
                 if (j != jdrop)
                 {
-                    temp = DOT_PRODUCT(PART2(simi, j, 1, n), PART(dx, 1, n));
+                    temp = DOT_PRODUCT(simi.ROW(j).PART(1, n), dx.PART(1, n));
                     for (var k = 1; k <= n; ++k) simi[j, k] -= temp * simi[jdrop, k];
                 }
             }
@@ -592,18 +592,18 @@ namespace Cureos.Numerics
                     }
                 }
                 if (iprint >= 2)
-                    Console.WriteLine("Reduction in RHO to {0,13:F6}  and PARMU = {1,13:F6}", rho, parmu);
+                    Console.WriteLine(LF + "Reduction in RHO to {0,13:F6}  and PARMU = {1,13:F6}", rho, parmu);
                 if (iprint == 2)
                 {
                     Console.WriteLine(IterationResultFormatter, nfvals, datmat[mp, np], datmat[mpp, np]);
-                    Console.WriteLine("X = {0}", String.Join("; ", PART1(sim, 1, n, np)));
+                    Console.WriteLine("X = {0}", sim.COL(np).PART(1, n).FORMAT());
                 }
                 goto L_140;
             }
 
             //     Return the best calculated values of the variables.
 
-            if (iprint >= 1) Console.WriteLine("Normal return from subroutine COBYLA");
+            if (iprint >= 1) Console.WriteLine(LF + "Normal return from subroutine COBYLA");
             if (ifull) goto L_620;
 
             L_600:
@@ -615,7 +615,7 @@ namespace Cureos.Numerics
             if (iprint >= 1)
             {
                 Console.WriteLine(IterationResultFormatter, nfvals, f, resmax);
-                Console.WriteLine("X = {0}", String.Join("; ", PART(x, 1, n)));
+                Console.WriteLine("X = {0}", x.PART(1, n).FORMAT());
             }
 
             maxfun = nfvals;
@@ -718,7 +718,7 @@ namespace Cureos.Numerics
             var icount = 0;
 
             L_70:
-            var optnew = mcon == m ? resmax : -DOT_PRODUCT(PART(dx, 1, n), PART1(a, 1, n, mcon));
+            var optnew = mcon == m ? resmax : -DOT_PRODUCT(dx.PART(1, n), a.COL(mcon).PART(1, n));
 
             if (icount == 0 || optnew < optold)
             {
@@ -859,7 +859,7 @@ namespace Cureos.Numerics
                 {
                     var kp = k + 1;
                     var kw = iact[kp];
-                    var sp = DOT_PRODUCT(PART1(z, 1, n, k), PART1(a, 1, n, kw));
+                    var sp = DOT_PRODUCT(z.COL(k).PART(1, n), a.COL(kw).PART(1, n));
                     temp = Math.Sqrt(sp * sp + zdota[kp] * zdota[kp]);
                     var alpha = zdota[kp] / temp;
                     var beta = sp / temp;
@@ -878,7 +878,7 @@ namespace Cureos.Numerics
                 iact[k] = isave;
                 vmultc[k] = vsave;
             }
-            temp = DOT_PRODUCT(PART1(z, 1, n, nact), PART1(a, 1, n, kk));
+            temp = DOT_PRODUCT(z.COL(nact).PART(1, n), a.COL(kk).PART(1, n));
             if (temp == 0.0) goto L_490;
             zdota[nact] = temp;
             vmultc[icon] = 0.0;
@@ -893,7 +893,7 @@ namespace Cureos.Numerics
             if (mcon > m && kk != mcon)
             {
                 var k = nact - 1;
-                var sp = DOT_PRODUCT(PART1(z, 1, n, k), PART1(a, 1, n, kk));
+                var sp = DOT_PRODUCT(z.COL(k).PART(1, n), a.COL(kk).PART(1, n));
                 temp = Math.Sqrt(sp * sp + zdota[nact] * zdota[nact]);
                 var alpha = zdota[nact] / temp;
                 var beta = sp / temp;
@@ -917,7 +917,7 @@ namespace Cureos.Numerics
 
             if (mcon > m) goto L_320;
             kk = iact[nact];
-            temp = (DOT_PRODUCT(PART(sdirn, 1, n), PART1(a, 1, n, kk)) - 1.0) / zdota[nact];
+            temp = (DOT_PRODUCT(sdirn.PART(1, n), a.COL(kk).PART(1, n)) - 1.0) / zdota[nact];
             for (var k = 1; k <= n; ++k) sdirn[k] -= temp * z[k, nact];
             goto L_340;
 
@@ -933,7 +933,7 @@ namespace Cureos.Numerics
                 {
                     var kp = k + 1;
                     kk = iact[kp];
-                    var sp = DOT_PRODUCT(PART1(z, 1, n, k), PART1(a, 1, n, kk));
+                    var sp = DOT_PRODUCT(z.COL(k).PART(1, n), a.COL(kk).PART(1, n));
                     temp = Math.Sqrt(sp * sp + zdota[kp] * zdota[kp]);
                     var alpha = zdota[kp] / temp;
                     var beta = sp / temp;
@@ -959,7 +959,7 @@ namespace Cureos.Numerics
             //     change to the current vector of variables.
 
             if (mcon > m) goto L_320;
-            temp = DOT_PRODUCT(PART(sdirn, 1, n), PART1(z, 1, n, nact + 1));
+            temp = DOT_PRODUCT(sdirn.PART(1, n), z.COL(nact + 1).PART(1, n));
             for (var k = 1; k <= n; ++k) sdirn[k] -= temp * z[k, nact + 1];
             goto L_340;
 
@@ -1011,7 +1011,7 @@ namespace Cureos.Numerics
                 for (var k = 1; k <= nact; ++k)
                 {
                     kk = iact[k];
-                    temp = b[kk] - DOT_PRODUCT(PART1(a, 1, n, kk), PART(dxnew, 1, n));
+                    temp = b[kk] - DOT_PRODUCT(a.COL(kk).PART(1, n), dxnew.PART(1, n));
                     resmax = Math.Max(resmax, temp);
                 }
             }
@@ -1116,7 +1116,23 @@ namespace Cureos.Numerics
             ifull = false;
         }
 
-        private static T[] PART<T>(IList<T> src, int from, int to)
+        private static T[] ROW<T>(this T[,] src, int rowidx)
+        {
+            var cols = src.GetLength(1);
+            var dest = new T[cols];
+            for (var col = 0; col < cols; ++col) dest[col] = src[rowidx, col];
+            return dest;
+        }
+
+        private static T[] COL<T>(this T[,] src, int colidx)
+        {
+            var rows = src.GetLength(0);
+            var dest = new T[rows];
+            for (var row = 0; row < rows; ++row) dest[row] = src[row, colidx];
+            return dest;
+        }
+
+        private static T[] PART<T>(this IList<T> src, int from, int to)
         {
             var dest = new T[to - from + 1];
             var destidx = 0;
@@ -1124,25 +1140,15 @@ namespace Cureos.Numerics
             return dest;
         }
 
-        private static T[] PART1<T>(T[,] src, int from, int to, int fix2)
+        private static string FORMAT(this double[] x)
         {
-            var dest = new T[to - from + 1];
-            var destidx = 0;
-            for (var srcidx = from; srcidx <= to; ++srcidx, ++destidx) dest[destidx] = src[srcidx, fix2];
-            return dest;
+            return String.Concat(Array.ConvertAll(x, val => String.Format("{0,13:F6}", val)));
         }
 
-        private static T[] PART2<T>(T[,] src, int fix1, int from, int to)
+        private static double DOT_PRODUCT(double[] lhs, double[] rhs)
         {
-            var dest = new T[to - from + 1];
-            var destidx = 0;
-            for (var srcidx = from; srcidx <= to; ++srcidx, ++destidx) dest[destidx] = src[fix1, srcidx];
-            return dest;
-        }
-
-        private static double DOT_PRODUCT(IEnumerable<double> array1, IEnumerable<double> array2)
-        {
-            return array1.Zip(array2, (lhs, rhs) => lhs * rhs).Sum();
+            var sum = 0.0; for (var i = 0; i < lhs.Length; ++i) sum += lhs[i] * rhs[i];
+            return sum;
         }
 
         #endregion
