@@ -56,15 +56,19 @@ namespace Cscobyla.Tests
                 yield return
                     Tuple.Create("9 (Hock and Schittkowski 100)", (CalcfcDelegate)calcfc9, 7, 4,
                                  new[] { 2.330499, 1.951372, -0.4775414, 4.365726, -0.624487, 1.038131, 1.594227 }, 1.0e-5);
+                yield return
+                    Tuple.Create("10 (Hexagon area)", (CalcfcDelegate)calcfc10, 9, 14,
+                                 new[] { 0.688341, 0.725387, -0.284033, 0.958814, 0.688341, 0.725387, -0.284033, 0.958814, 0.0 }, 
+                                 1.0e-5);
             }
         }
-
+ 
         #endregion
 
         #region METHODS
 
         [TestCaseSource("TestCases")]
-        public void RunTestProblem(TestCaseType testCase)
+        public void TestProblem(TestCaseType testCase)
         {
             var problem = testCase.Item1;
             var calcfc = testCase.Item2;
@@ -75,13 +79,13 @@ namespace Cscobyla.Tests
 
             Console.WriteLine("{0}Output from test problem {1}", Environment.NewLine, problem);
 
-            var error1 = InvokeTestProblem(calcfc, n, m, rhoend1, xopt);
+            var error1 = RunTestProblem(calcfc, n, m, rhoend1, xopt);
             Assert.Less(error1, accepted);
-            var error2 = InvokeTestProblem(calcfc, n, m, rhoend2, xopt);
+            var error2 = RunTestProblem(calcfc, n, m, rhoend2, xopt);
             Assert.Less(error2, error1);
         }
 
-        public double InvokeTestProblem(CalcfcDelegate calcfc, int n, int m, double rhoend, double[] xopt)
+        public double RunTestProblem(CalcfcDelegate calcfc, int n, int m, double rhoend, double[] xopt)
         {
             var x = Enumerable.Repeat(1.0, n).ToArray();
             var maxfun = 3500;
@@ -192,57 +196,31 @@ namespace Cscobyla.Tests
             con[2] = 196.0 - 23.0 * x[0] - x[1] * x[1] - 6.0 * x[5] * x[5] + 8.0 * x[6];
             con[3] = -4.0 * x[0] * x[0] - x[1] * x[1] + 3.0 * x[0] * x[1] - 2.0 * x[2] * x[2] - 5.0 * x[5] + 11.0 * x[6];
         }
-        /*
-         */
+
+        /// <summary>
+        /// This problem is taken from page 415 of Luenberger's book Applied
+        /// Nonlinear Programming. It is to maximize the area of a hexagon of
+        /// unit diameter.
+        /// </summary>
+        public static void calcfc10(int n, int m, double[] x, out double f, double[] con)
+        {
+            f = -0.5 * (x[0] * x[3] - x[1] * x[2] + x[2] * x[8] - x[4] * x[8] + x[4] * x[7] - x[5] * x[6]);
+            con[0] = 1.0 - x[2] * x[2] - x[3] * x[3];
+            con[1] = 1.0 - x[8] * x[8];
+            con[2] = 1.0 - x[4] * x[4] - x[5] * x[5];
+            con[3] = 1.0 - x[0] * x[0] - Math.Pow(x[1] - x[8], 2.0);
+            con[4] = 1.0 - Math.Pow(x[0] - x[4], 2.0) - Math.Pow(x[1] - x[5], 2.0);
+            con[5] = 1.0 - Math.Pow(x[0] - x[6], 2.0) - Math.Pow(x[1] - x[7], 2.0);
+            con[6] = 1.0 - Math.Pow(x[2] - x[4], 2.0) - Math.Pow(x[3] - x[5], 2.0);
+            con[7] = 1.0 - Math.Pow(x[2] - x[6], 2.0) - Math.Pow(x[3] - x[7], 2.0);
+            con[8] = 1.0 - x[6] * x[6] - Math.Pow(x[7] - x[8], 2.0);
+            con[9] = x[0] * x[3] - x[1] * x[2];
+            con[10] = x[2] * x[8];
+            con[11] = -x[4] * x[8];
+            con[12] = x[4] * x[7] - x[5] * x[6];
+            con[13] = x[8];
+        }
+
         #endregion
     }
 }
-/*
-  ELSE IF (nprob == 10) THEN
-
-//     This problem is taken from page 415 of Luenberger's book Applied
-//     Nonlinear Programming. It is to maximize the area of a hexagon of
-//     unit diameter.
-
-    WRITE(*, 100)
-    100 FORMAT (/'       Output from test problem 10 (Hexagon area)')
-    n = 9
-    m = 14
-  END IF
-
-    CALL cobyla (n, m, x, rhobeg, rhoend, iprint, maxfun)
-    IF (nprob == 10) THEN
-      tempa = x(1) + x(3) + x(5) + x(7)
-      tempb = x(2) + x(4) + x(6) + x(8)
-      tempc = 0.5_dp/SQRT(tempa*tempa + tempb*tempb)
-      tempd = tempc*SQRT(3.0_dp)
-      xopt(1) = tempd*tempa + tempc*tempb
-      xopt(2) = tempd*tempb - tempc*tempa
-      xopt(3) = tempd*tempa - tempc*tempb
-      xopt(4) = tempd*tempb + tempc*tempa
-      DO i=1,4
-        xopt(i+4) = xopt(i)
-      END DO
-    END IF
-ELSE IF (nprob == 10) THEN
-
-//     Test problem 10 (Hexagon area)
-
-  f = - 0.5_dp*(x(1)*x(4) - x(2)*x(3) + x(3)*x(n) - x(5)*x(n) + x(5)*x(8) &
-                - x(6)*x(7))
-  con(1) = 1.0_dp - x(3)**2 - x(4)**2
-  con(2) = 1.0_dp - x(n)**2
-  con(3) = 1.0_dp - x(5)**2 - x(6)**2
-  con(4) = 1.0_dp - x(1)**2 - (x(2) - x(n))**2
-  con(5) = 1.0_dp - (x(1) - x(5))**2 - (x(2) - x(6))**2
-  con(6) = 1.0_dp - (x(1) - x(7))**2 - (x(2) - x(8))**2
-  con(7) = 1.0_dp - (x(3) - x(5))**2 - (x(4) - x(6))**2
-  con(8) = 1.0_dp - (x(3) - x(7))**2 - (x(4) - x(8))**2
-  con(9) = 1.0_dp - x(7)**2 - (x(8) - x(n))**2
-  con(10) = x(1)*x(4) - x(2)*x(3)
-  con(11) = x(3)*x(n)
-  con(12) = - x(5)*x(n)
-  con(13) = x(5)*x(8) - x(6)*x(7)
-  con(m) = x(n)
-END IF
-*/
