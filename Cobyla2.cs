@@ -37,6 +37,12 @@ namespace Cureos.Numerics
 
     public static class Cobyla2
     {
+        #region FIELDS
+
+        private const string IterationResultFormatter = "NFVALS = {0,5}   F = {1,13:F6}    MAXCV = {2,13:F6}";
+
+        #endregion
+        
         #region METHODS
 
         public static void Minimize(CalcfcDelegate calcfc, int n, int m, double[] x, 
@@ -128,30 +134,24 @@ namespace Cureos.Numerics
             //     first N columns of SIM.
 
             // Local variables
-            var iptem = Math.Min(n, 5);
-            var iptemp = iptem + 1;
-            var np = n + 1;
-            var mp = m + 1;
+
             const double alpha = 0.25;
             const double beta = 2.1;
             const double gamma = 0.5;
             const double delta = 1.1;
+
+            double f, resmax, total;
+
+            var np = n + 1;
+            var mp = m + 1;
             var rho = rhobeg;
             var parmu = 0.0;
 
-            var iflag = 0;
-            var ifull = 0;
-            var f = 0.0;
-            var resmax = 0.0;
+            var iflag = false;
+            var ifull = false;
             var parsig = 0.0;
             var prerec = 0.0;
             var prerem = 0.0;
-            var total = 0.0;
-
-            if (iprint >= 2) Console.WriteLine("The initial value of RHO is {0,13:F6} and PARMU is set to zero.", rho);
-
-            var nfvals = 0;
-            var temp = 1.0 / rho;
 
             var con = new double[1 + mpp];
             var sim = new double[1 + n,1 + np];
@@ -164,6 +164,11 @@ namespace Cureos.Numerics
             var dx = new double[1 + n];
             var w = new double[1 + n];
 
+            if (iprint >= 2) Console.WriteLine("The initial value of RHO is {0,13:F6} and PARMU is set to zero.", rho);
+
+            var nfvals = 0;
+            var temp = 1.0 / rho;
+
             for (var i = 1; i <= n; ++i)
             {
                 sim[i, np] = x[i];
@@ -172,7 +177,7 @@ namespace Cureos.Numerics
             }
 
             var jdrop = np;
-            var ibrnch = 0;
+            var ibrnch = false;
 
             //     Make the next call of the user-supplied subroutine CALCFC. These
             //     instructions are also used for calling CALCFC during the iterations of
@@ -189,17 +194,17 @@ namespace Cureos.Numerics
             ++nfvals;
 
             calcfc(n, m, x, out f, con);
-            resmax = m > 0 ? -con.Min() : 0.0;
+            resmax = 0.0; for (var k = 1; k <= m; ++k) resmax = Math.Max(resmax, -con[k]);
 
             if (nfvals == iprint - 1 || iprint == 3)
             {
-                Console.WriteLine("NFVALS = {0,5}   F = {1,13:F6}    MAXCV = {2,13:F6}", nfvals, f, resmax);
-                Console.WriteLine("X = {0}", String.Join(", ", x.Skip(1)));
+                Console.WriteLine(IterationResultFormatter, nfvals, f, resmax);
+                Console.WriteLine("X = {0}", String.Join("; ", x.Skip(1)));
             }
 
             con[mp] = f;
             con[mpp] = resmax;
-            if (ibrnch == 1) goto L_440;
+            if (ibrnch) goto L_440;
 
             //     Set the recently calculated function values in a column of DATMAT. This
             //     array has a column for each vertex of the current simplex, the entries of
@@ -230,11 +235,10 @@ namespace Cureos.Numerics
                             datmat[k, jdrop] = datmat[k, np];
                             datmat[k, np] = con[k];
                         }
-
                         for (var k = 1; k <= jdrop; ++k)
                         {
                             sim[jdrop, k] = -rho;
-                            temp = -PART1(simi, k, jdrop, k).Sum();
+                            temp = 0.0; for (var i = k; i <= jdrop; ++i) temp -= simi[i, k];
                             simi[jdrop, k] = temp;
                         }
                     }
@@ -247,7 +251,7 @@ namespace Cureos.Numerics
                 }
             }
 
-            ibrnch = 1;
+            ibrnch = true;
 
             //     Identify the optimal vertex of the current simplex.
 
@@ -263,10 +267,9 @@ namespace Cureos.Numerics
                     nbest = j;
                     phimin = temp;
                 }
-                else if (temp == phimin && parmu == 0.0)
+                else if (temp == phimin && parmu == 0.0 && datmat[mpp, j] < datmat[mpp, nbest])
                 {
-                    if (datmat[mpp, j] < datmat[mpp, nbest])
-                        nbest = j;
+                    nbest = j;
                 }
             }
 
@@ -324,8 +327,7 @@ namespace Cureos.Numerics
             for (var k = 1; k <= mp; ++k)
             {
                 con[k] = -datmat[k, np];
-                for (var j = 1; j <= n; ++j)
-                    w[j] = datmat[k, j] + con[k];
+                for (var j = 1; j <= n; ++j) w[j] = datmat[k, j] + con[k];
 
                 for (var i = 1; i <= n; ++i)
                 {
@@ -336,7 +338,7 @@ namespace Cureos.Numerics
             //     Calculate the values of sigma and eta, and set IFLAG = 0 if the current
             //     simplex is not acceptable.
 
-            iflag = 1;
+            iflag = true;
             parsig = alpha * rho;
             var pareta = beta * rho;
 
@@ -346,13 +348,13 @@ namespace Cureos.Numerics
                 var weta = 0.0; for (var k = 1; k <= n; ++k) weta += sim[k, j] * sim[k, j];
                 vsig[j] = 1.0 / Math.Sqrt(wsig);
                 veta[j] = Math.Sqrt(weta);
-                if (vsig[j] < parsig || veta[j] > pareta) iflag = 0;
+                if (vsig[j] < parsig || veta[j] > pareta) iflag = false;
             }
 
             //     If a new vertex is needed to improve acceptability, then decide which
             //     vertex to drop from the simplex.
 
-            if (ibrnch != 1 && iflag != 1)
+            if (!ibrnch && !iflag)
             {
                 jdrop = 0;
                 temp = pareta;
@@ -423,12 +425,12 @@ namespace Cureos.Numerics
             //     Branch if the length of DX is less than 0.5*RHO.
 
             trstlp(n, m, a, con, rho, dx, out ifull);
-            if (ifull == 0)
+            if (!ifull)
             {
-                temp = PART(dx, 1, n).Select(item => item * item).Sum();
+                temp = 0.0; for (var k = 1; k <= n; ++k) temp += dx[k] * dx[k];
                 if (temp < 0.25 * rho * rho)
                 {
-                    ibrnch = 1;
+                    ibrnch = true;
                     goto L_550;
                 }
             }
@@ -469,6 +471,7 @@ namespace Cureos.Numerics
             //     Then find the actual reduction in the merit function.
 
             for (var k = 1; k <= n; ++k) x[k] = sim[k, np] + dx[k];
+            ibrnch = true;
             goto L_40;
 
             L_440:
@@ -510,8 +513,7 @@ namespace Cureos.Numerics
                     temp = veta[j];
                     if (trured > 0.0)
                     {
-                        temp = 0.0;
-                        for (var k = 1; k <= n; ++k) temp += Math.Pow(dx[k] - sim[k, j], 2.0);
+                        temp = 0.0; for (var k = 1; k <= n; ++k) temp += Math.Pow(dx[k] - sim[k, j], 2.0);
                         temp = Math.Sqrt(temp);
                     }
                     if (temp > edgmax)
@@ -548,9 +550,9 @@ namespace Cureos.Numerics
             if (trured > 0.0 && trured >= 0.1 * prerem) goto L_140;
 
             L_550:
-            if (iflag == 0)
+            if (!iflag)
             {
-                ibrnch = 0;
+                ibrnch = false;
                 goto L_140;
             }
 
@@ -593,9 +595,8 @@ namespace Cureos.Numerics
                     Console.WriteLine("Reduction in RHO to {0,13:F6}  and PARMU = {1,13:F6}", rho, parmu);
                 if (iprint == 2)
                 {
-                    Console.WriteLine("NFVALS = {0,5}   F = {1,13:F6}    MAXCV = {2,13:F6}", nfvals, datmat[mp, np],
-                                      datmat[mpp, np]);
-                    Console.WriteLine("X = {0}", String.Join(", ", PART1(sim, 1, n, np)));
+                    Console.WriteLine(IterationResultFormatter, nfvals, datmat[mp, np], datmat[mpp, np]);
+                    Console.WriteLine("X = {0}", String.Join("; ", PART1(sim, 1, n, np)));
                 }
                 goto L_140;
             }
@@ -603,7 +604,7 @@ namespace Cureos.Numerics
             //     Return the best calculated values of the variables.
 
             if (iprint >= 1) Console.WriteLine("Normal return from subroutine COBYLA");
-            if (ifull == 1) goto L_620;
+            if (ifull) goto L_620;
 
             L_600:
             for (var k = 1; k <= n; ++k) x[k] = sim[k, np];
@@ -613,14 +614,14 @@ namespace Cureos.Numerics
             L_620:
             if (iprint >= 1)
             {
-                Console.WriteLine("NFVALS = {0,5}   F = {1,13:F6}    MAXCV = {2,13:F6}", nfvals, f, resmax);
-                Console.WriteLine("X = {0}", String.Join(", ", PART(x, 1, n)));
+                Console.WriteLine(IterationResultFormatter, nfvals, f, resmax);
+                Console.WriteLine("X = {0}", String.Join("; ", PART(x, 1, n)));
             }
 
             maxfun = nfvals;
         }
 
-        private static void trstlp(int n, int m, double[,] a, double[] b, double rho, double[] dx, out int ifull)
+        private static void trstlp(int n, int m, double[,] a, double[] b, double rho, double[] dx, out bool ifull)
         {
             // N.B. Arguments Z, ZDOTA, VMULTC, SDIRN, DXNEW, VMULTD & IACT have been removed.
 
@@ -663,7 +664,12 @@ namespace Cureos.Numerics
 
             // Local variables
 
-            ifull = 1;
+            ifull = true;
+
+            double temp;
+
+            var nactx = 0;
+            var resold = 0.0;
 
             var z = new double[1 + n,1 + n];
             var zdota = new double[2 + m];
@@ -673,15 +679,16 @@ namespace Cureos.Numerics
             var vmultd = new double[2 + m];
             var iact = new int[2 + m];
 
-            var nactx = 0;
-            var temp = 0.0;
-            var resold = 0.0;
-
-            var icon = 0;
             var mcon = m;
             var nact = 0;
+            for (var i = 1; i <= n; ++i)
+            {
+                z[i, i] = 1.0;
+                dx[i] = 0.0;
+            }
+
+            var icon = 0;
             var resmax = 0.0;
-            for (var i = 1; i <= n; ++i) z[i, i] = 1.0;
             if (m >= 1)
             {
                 for (var k = 1; k <= m; ++k)
@@ -1106,7 +1113,7 @@ namespace Cureos.Numerics
 
             L_490:
             if (mcon == m) goto L_480;
-            ifull = 0;
+            ifull = false;
         }
 
         private static T[] PART<T>(IList<T> src, int from, int to)

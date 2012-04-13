@@ -3,9 +3,12 @@
 //------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cureos.Numerics;
 using NUnit.Framework;
+
+using TestCaseType = System.Tuple<Cureos.Numerics.CalcfcDelegate, int, int, double[], double>;
 
 namespace Cscobyla.Tests
 {
@@ -14,47 +17,109 @@ namespace Cscobyla.Tests
     {
         #region FIELDS
 
-        private const int iprint = 3;
+        private const int iprint = 1;
         private const double rhobeg = 0.5;
+        private const double rhoend1 = 1.0e-6;
+        private const double rhoend2 = 1.0e-8;
 
         #endregion
 
-        #region TEST CASES
+        #region AUTO-IMPLEMENTED PROPERTIES
 
-        [Test, Sequential]
-        public void TestProblem1([Values(1.0e-6, 1.0e-8)] double rhoend, [Values(1.0e-5, 1.0e-7)] double acceptedError)
+        private IEnumerable<TestCaseType> TestCases
         {
-            //     Minimization of a simple quadratic function of two variables.
-            InvokeTestProblem(Calcfc1, 2, 0, rhoend, new[] { -1.0, 0.0 }, acceptedError);
+            get
+            {
+                yield return Tuple.Create((CalcfcDelegate)calcfc1, 2, 0, new[] { -1.0, 0.0 }, 1.0e-5);
+                yield return
+                    Tuple.Create((CalcfcDelegate)calcfc2, 2, 1, new[] {Math.Sqrt(0.5), -Math.Sqrt(0.5)}, 1.0e-5);
+                yield return
+                    Tuple.Create((CalcfcDelegate)calcfc3, 3, 1,
+                                 new[] {1.0 / Math.Sqrt(3.0), 1.0 / Math.Sqrt(6.0), -1.0 / 3.0}, 1.0e-5);
+                yield return Tuple.Create((CalcfcDelegate)calcfc4, 2, 0, new[] { -1.0, 1.0 }, 2.0e-5);
+                yield return Tuple.Create((CalcfcDelegate)calcfc5, 2, 0, new[] { -1.0, 1.0 }, 2.0e-4);
+                yield return
+                    Tuple.Create((CalcfcDelegate)calcfc6, 2, 2, new[] { Math.Sqrt(0.5), Math.Sqrt(0.5) }, 1.0e-6);
+            }
         }
 
-        public static void Calcfc1(int n, int m, double[] x, out double f, double[] con)
+        #endregion
+
+        #region METHODS
+
+        [TestCaseSource("TestCases")]
+        public void RunTestProblem(TestCaseType testCase)
+        {
+            var calcfc = testCase.Item1;
+            var n = testCase.Item2;
+            var m = testCase.Item3;
+            var xopt = testCase.Item4;
+            var accepted = testCase.Item5;
+
+            var error1 = InvokeTestProblem(calcfc, n, m, rhoend1, xopt);
+            Assert.Less(error1, accepted);
+            var error2 = InvokeTestProblem(calcfc, n, m, rhoend2, xopt);
+            Assert.Less(error2, error1);
+        }
+
+        public double InvokeTestProblem(CalcfcDelegate calcfc, int n, int m, double rhoend, double[] xopt)
+        {
+            var x = Enumerable.Repeat(1.0, n).ToArray();
+            var maxfun = 3500;
+            Cobyla2.Minimize(calcfc, n, m, x, rhobeg, rhoend, iprint, ref maxfun);
+            return xopt.Zip(x, (xa, xb) => (xa - xb) * (xa - xb)).Sum();
+        }
+
+        /// <summary>
+        /// Test problem 1 (Simple quadratic)
+        /// </summary>
+        public static void calcfc1(int n, int m, double[] x, out double f, double[] con)
         {
             f = 10.0 * Math.Pow(x[0] + 1.0, 2.0) + Math.Pow(x[1], 2.0);
         }
 
-        [Test, Sequential]
-        public void TestProblem2([Values(1.0e-6, 1.0e-8)] double rhoend, [Values(1.0e-5, 1.0e-7)] double acceptedError)
-        {
-            //     Minimization of a simple quadratic function of two variables.
-            InvokeTestProblem(Calcfc2, 2, 1, rhoend, new[] { Math.Sqrt(0.5), -Math.Sqrt(0.5) }, acceptedError);
-        }
-
-        public static void Calcfc2(int n, int m, double[] x, out double f, double[] con)
+        /// <summary>
+        /// Test problem 2 (2D unit circle calculation)
+        /// </summary>
+        public static void calcfc2(int n, int m, double[] x, out double f, double[] con)
         {
             f = x[0] * x[1];
             con[0] = 1.0 - x[0] * x[0] - x[1] * x[1];
         }
 
-        public void InvokeTestProblem(CalcfcDelegate calcfc, int n, int m, double rhoend, double[] xopt, double acceptedError)
+        /// <summary>
+        /// Test problem 3 (3D ellipsoid calculation)
+        /// </summary>
+        public static void calcfc3(int n, int m, double[] x, out double f, double[] con)
         {
-            var x = Enumerable.Repeat(1.0, n).ToArray();
+            f = x[0] * x[1] * x[2];
+            con[0] = 1.0 - x[0] * x[0] - 2.0 * x[1] * x[1] - 3.0 * x[2] * x[2];
+        }
 
-            var maxfun = 3500;
-            Cobyla2.Minimize(calcfc, n, m, x, rhobeg, rhoend, iprint, ref maxfun);
+        /// <summary>
+        /// Test problem 4 (Weak Rosenbrock)
+        /// </summary>
+        public static void calcfc4(int n, int m, double[] x, out double f, double[] con)
+        {
+            f = Math.Pow(x[0] * x[0] - x[1], 2.0) + Math.Pow(1.0 + x[0], 2.0);
+        }
 
-            var error = xopt.Zip(x, (xa, xb) => (xa - xb) * (xa - xb)).Sum();
-            Assert.Less(error, acceptedError);
+        /// <summary>
+        /// Test problem 5 (Intermediate Rosenbrock)
+        /// </summary>
+        public static void calcfc5(int n, int m, double[] x, out double f, double[] con)
+        {
+            f = 10.0 * Math.Pow(x[0] * x[0] - x[1], 2.0) + Math.Pow(1.0 + x[0], 2.0);
+        }
+
+        /// <summary>
+        /// Test problem 6 (Equation (9.1.15) in Fletcher's book)
+        /// </summary>
+        public static void calcfc6(int n, int m, double[] x, out double f, double[] con)
+        {
+            f = -x[0] - x[1];
+            con[0] = x[1] - x[0] * x[0];
+            con[1] = 1.0 - x[0] * x[0] - x[1] * x[1];
         }
 
         #endregion
