@@ -13,14 +13,11 @@ The initial point X is taken as one vertex of the initial simplex with zero bein
 
 ==References
 
-This is a C# version of Mike Powell's F77 implementation of COBYLA2, available at
-       ftp://plato.la.asu.edu/pub/other_software/cobyla2.tar.gz
+This is a C# version of Mike Powell's F77 implementation of COBYLA2, available at ftp://plato.la.asu.edu/pub/other_software/cobyla2.tar.gz
 
-The C# version is a straightforward translation of Alan Miller's F90 port, available at
-       ftp://plato.la.asu.edu/pub/other_software/cobyla2_f90.tar.gz
+The C# version is a straightforward translation of Alan Miller's F90 port, available at ftp://plato.la.asu.edu/pub/other_software/cobyla2_f90.tar.gz
 
-Mike Powell's paper on Direct Search methods is available at
-       http://www.damtp.cam.ac.uk/user/na/NA_papers/NA1998_04.ps.gz
+Mike Powell's paper on Direct Search methods is available at http://www.damtp.cam.ac.uk/user/na/NA_papers/NA1998_04.ps.gz
 
 ==Usage
 
@@ -75,6 +72,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==Revision history
 
-April 15, 2012: Added a section on usage.
-April 14, 2012: Added a more detailed presentation of the algorithm.  
-April 12, 2012: Initial document.
+* April 15, 2012: Added a section on usage.
+* April 14, 2012: Added a more detailed presentation of the algorithm.  
+* April 12, 2012: Initial document.
