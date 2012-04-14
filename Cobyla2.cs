@@ -29,24 +29,98 @@ using System.Collections.Generic;
 namespace Cureos.Numerics
 {
     #region DELEGATES
-        
+
+    /// <summary>
+    /// Signature for the objective and constraints function evaluation method used in <see cref="Cobyla2"/> minimization.
+    /// </summary>
+    /// <param name="n">Number of variables.</param>
+    /// <param name="m">Number of constraints.</param>
+    /// <param name="x">Variable values to be employed in function and constraints calculation.</param>
+    /// <param name="f">Calculated objective function value.</param>
+    /// <param name="con">Calculated function values of the constraints.</param>
     public delegate void CalcfcDelegate(int n, int m, double[] x, out double f, double[] con);
  
     #endregion
 
+    /// <summary>
+    /// Constrained Optimization BY Linear Approximation for .NET
+    ///
+    /// COBYLA2 is an implementation of Powell’s nonlinear derivative–free constrained optimization that uses 
+    /// a linear approximation approach. The algorithm is a sequential trust–region algorithm that employs linear 
+    /// approximations to the objective and constraint functions, where the approximations are formed by linear 
+    /// interpolation at n + 1 points in the space of the variables and tries to maintain a regular–shaped simplex 
+    /// over iterations.
+    ///
+    /// It solves nonsmooth NLP with a moderate number of variables (about 100). Inequality constraints only.
+    ///
+    /// The initial point X is taken as one vertex of the initial simplex with zero being another, so, X should 
+    /// not be entered as the zero vector.
+    /// </summary>
     public static class Cobyla2
     {
         #region FIELDS
 
         private static readonly string LF = Environment.NewLine;
-        private static readonly string IterationResultFormatter = LF + "NFVALS = {0,5}   F = {1,13:F6}    MAXCV = {2,13:F6}";
+        private static readonly string IterationResultFormatter = LF + "NFVALS = {0,5}   F = {1,13:F6}    MAXCV = {2,13:E6}";
 
         #endregion
         
         #region METHODS
 
-        public static void Minimize(CalcfcDelegate calcfc, int n, int m, double[] x, 
-            double rhobeg, double rhoend, int iprint, ref int maxfun)
+        /// <summary>
+        /// Minimizes the objective function F with respect to a set of inequality constraints CON, 
+        /// and returns the optimal variable array. F and CON may be non-linear, and should preferably be smooth.
+        /// </summary>
+        /// <param name="calcfc">Method for calculating objective function and constraints.</param>
+        /// <param name="n">Number of variables.</param>
+        /// <param name="m">Number of constraints.</param>
+        /// <param name="xin">Initial values of the variables (zero-based array).</param>
+        /// <param name="rhobeg">Initial size of the simplex.</param>
+        /// <param name="rhoend">Final value of the simplex.</param>
+        /// <param name="iprint">Print level, 0 &lt;= iprint &lt;= 3, where 0 provides no output and
+        /// 3 provides full output to the console.</param>
+        /// <param name="maxfun">Maximum number of function evaluations before terminating.</param>
+        /// <returns>Optimal values of the variables obtained in the COBYLA minimization.</returns>
+        public static double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin, 
+            double rhobeg = 0.5, double rhoend = 1.0e-6, int iprint = 2, int maxfun = 3500)
+        {
+            var iters = maxfun;
+            return cobyla(calcfc, n, m, xin, rhobeg, rhoend, iprint, ref iters);
+        }
+
+        /// <summary>
+        /// Minimizes the objective function F with respect to a set of inequality constraints CON, 
+        /// and returns the optimal variable array. F and CON may be non-linear, and should preferably be smooth.
+        /// This overloaded method provides more detailed results of the optimization, including final
+        /// objective function value, constraints function values and performed number of function evaluations.
+        /// </summary>
+        /// <param name="calcfc">Method for calculating objective function and constraints.</param>
+        /// <param name="n">Number of variables.</param>
+        /// <param name="m">Number of constraints.</param>
+        /// <param name="xin">Initial values of the variables (zero-based array).</param>
+        /// <param name="rhobeg">Initial size of the simplex.</param>
+        /// <param name="rhoend">Final value of the simplex.</param>
+        /// <param name="iprint">Print level, 0 &lt;= iprint &lt;= 3, where 0 provides no output and
+        /// 3 provides full output to the console.</param>
+        /// <param name="maxfun">Maximum number of function evaluations before terminating.</param>
+        /// <param name="f">Objective function value at optimal variable values.</param>
+        /// <param name="con">Constraints function values at optimal variable values.</param>
+        /// <param name="iters">Performed number of function and constraints evaluations.</param>
+        /// <returns>Optimal values of the variables obtained in the COBYLA minimization.</returns>
+        public static double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin,
+            double rhobeg, double rhoend, int iprint, int maxfun, out double f, out double[] con, out int iters)
+        {
+            iters = maxfun;
+            var xout = cobyla(calcfc, n, m, xin, rhobeg, rhoend, iprint, ref iters);
+
+            con = new double[m];
+            calcfc(n, m, xout, out f, con);
+
+            return xout;
+        }
+
+        private static double[] cobyla(CalcfcDelegate calcfc, int n, int m, double[] xin, 
+            double rhobeg, double rhoend, int iprint, ref int iters)
         {
             //     This subroutine minimizes an objective function F(X) subject to M
             //     inequality constraints on X, where X is a vector of variables that has
@@ -83,9 +157,9 @@ namespace Cureos.Numerics
             //     nonnegative eventually, at least to the precision of RHOEND. In the
             //     printed output the displayed term that is multiplied by SIGMA is
             //     called MAXCV, which stands for 'MAXimum Constraint Violation'.  The
-            //     argument MAXFUN is an integer variable that must be set by the user to a
+            //     argument ITERS is an integer variable that must be set by the user to a
             //     limit on the number of calls of CALCFC, the purpose of this routine being
-            //     given below.  The value of MAXFUN will be altered to the number of calls
+            //     given below.  The value of ITERS will be altered to the number of calls
             //     of CALCFC that are made.
 
             //     In order to define the objective and constraint functions, we require
@@ -98,16 +172,16 @@ namespace Cureos.Numerics
             //     ...,CON(M).  Note that we are trying to adjust X so that F(X) is as
             //     small as possible subject to the constraint functions being nonnegative.
 
-            // Local variable
+            // Local variables
             var mpp = m + 2;
 
             // Internal base-1 X array
-            var iox = new double[n + 1];
-            Array.Copy(x, 0, iox, 1, n);
+            var x = new double[n + 1];
+            Array.Copy(xin, 0, x, 1, n);
 
             // Internal representation of the objective and constraints calculation method, 
             // accounting for that X and CON arrays in the cobylb method are base-1 arrays.
-            var icalcfc = new CalcfcDelegate(
+            var fcalcfc = new CalcfcDelegate(
                 (int nn, int mm, double[] xx, out double f, double[] con) =>
                     {
                         var ixx = new double[nn];
@@ -117,8 +191,12 @@ namespace Cureos.Numerics
                         Array.Copy(ocon, 0, con, 1, mm);
                     });
 
-            cobylb(icalcfc, n, m, mpp, iox, rhobeg, rhoend, iprint, ref maxfun);
-            Array.Copy(iox, 1, x, 0, n);
+            cobylb(fcalcfc, n, m, mpp, x, rhobeg, rhoend, iprint, ref iters);
+
+            var xout = new double[n];
+            Array.Copy(x, 1, xout, 0, n);
+
+            return xout;
         }
 
         private static void cobylb(CalcfcDelegate calcfc, int n, int m, int mpp, double[] x,

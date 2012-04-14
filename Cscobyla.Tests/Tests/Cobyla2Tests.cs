@@ -18,10 +18,11 @@ namespace Cscobyla.Tests
     {
         #region FIELDS
 
-        private const int iprint = 1;
         private const double rhobeg = 0.5;
         private const double rhoend1 = 1.0e-6;
         private const double rhoend2 = 1.0e-8;
+        private const int iprint = 1;
+        private const int maxfun = 3500;
 
         #endregion
 
@@ -87,15 +88,14 @@ namespace Cscobyla.Tests
 
         public double RunTestProblem(CalcfcDelegate calcfc, int n, int m, double rhoend, double[] xopt)
         {
-            var x = Enumerable.Repeat(1.0, n).ToArray();
-            var maxfun = 3500;
+            var xin = Enumerable.Repeat(1.0, n).ToArray();
 
             var timer = new Stopwatch();
             timer.Restart();
-            Cobyla2.Minimize(calcfc, n, m, x, rhobeg, rhoend, iprint, ref maxfun);
+            var xout = Cobyla2.Minimize(calcfc, n, m, xin, rhobeg, rhoend, iprint, maxfun);
             timer.Stop();
 
-            var error = xopt.Select((xo, i) => Math.Pow(xo - x[i], 2.0)).Sum();
+            var error = xopt.Select((xo, i) => Math.Pow(xo - xout[i], 2.0)).Sum();
             Console.WriteLine("{0}Least squares error in variables = {1,16:E6}", Environment.NewLine, error);
             Console.WriteLine("Elapsed time for optimization = {0} ms", timer.ElapsedMilliseconds);
 
