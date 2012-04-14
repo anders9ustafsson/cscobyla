@@ -30,17 +30,19 @@ x[1] and x[2] should be employed in the objective and constraints function evalu
 
 Implement a method for computing objective function and (potentially) constraints functions with the following signature:
 
-void calcfc(int n, int m, double[] x, out double f, double[] con)
+    void calcfc(int n, int m, double[] x, out double f, double[] con)
 
 where _n_ is the number of variables, _m_ is the number of constraints, _x_ is the variable array, _f_ is the calculated objective
 function value and _con_ is the array of calculated constraints function values.
 
 To minimize the objective function subject to constraints, call one of the two overloaded _Cobyla2.Minimize_ methods:
 
-    double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin, double rhobeg, double rhoend, int iprint, int maxfun, 
-        out double f, out double[] con, out int iters);
+    double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin, 
+                      double rhobeg, double rhoend, int iprint, int maxfun, 
+                      out double f, out double[] con, out int iters);
 
-    double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin, double rhobeg, double rhoend, int iprint, int maxfun);
+    double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin, 
+                      double rhobeg, double rhoend, int iprint, int maxfun);
 
 where _xin_ is the initial variable array, _rhobeg_ and _rhoend_ are the initial and final values of the simplex, _iprint_ (0..3)
 specifies the level of output to the console, _maxfun_ is the maximum allowed number of function evaluations, _f_ is the objective
