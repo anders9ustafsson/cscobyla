@@ -86,7 +86,7 @@ namespace Cureos.Numerics
         #region FIELDS
 
         private static readonly string LF = Environment.NewLine;
-        private static readonly string IterationResultFormatter = LF + "NFVALS = {0,5}   F = {1,13:F6}    MAXCV = {2,13:E6}";
+        private static readonly string IterationResultFormatter = LF + "NFVALS = {0,5}   F = {1,13:E6}    MAXCV = {2,13:E6}";
 
         #endregion
         
@@ -700,7 +700,7 @@ namespace Cureos.Numerics
                     }
                 }
                 if (iprint >= 2)
-                    Console.WriteLine(LF + "Reduction in RHO to {0,13:F6}  and PARMU = {1,13:F6}", rho, parmu);
+                    Console.WriteLine(LF + "Reduction in RHO to {0,13:E6}  and PARMU = {1,13:E6}", rho, parmu);
                 if (iprint == 2)
                 {
                     Console.WriteLine(IterationResultFormatter, nfvals, datmat[mp, np], datmat[mpp, np]);
