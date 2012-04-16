@@ -88,14 +88,15 @@ namespace Cscobyla.Tests
 
         public double RunTestProblem(CalcfcDelegate calcfc, int n, int m, double rhoend, double[] xopt)
         {
-            var xin = Enumerable.Repeat(1.0, n).ToArray();
+            var x = Enumerable.Repeat(1.0, n).ToArray();
 
             var timer = new Stopwatch();
             timer.Restart();
-            var xout = Cobyla2.Minimize(calcfc, n, m, xin, rhobeg, rhoend, iprint, maxfun);
+            Assert.That(Cobyla2.Minimize(calcfc, n, m, x, rhobeg, rhoend, iprint, maxfun),
+                        Is.EqualTo(Cobyla2.Status.Normal).Or.EqualTo(Cobyla2.Status.MaxIterationsReached));
             timer.Stop();
 
-            var error = xopt.Select((xo, i) => Math.Pow(xo - xout[i], 2.0)).Sum();
+            var error = xopt.Select((xo, i) => Math.Pow(xo - x[i], 2.0)).Sum();
             Console.WriteLine("{0}Least squares error in variables = {1,16:E6}", Environment.NewLine, error);
             Console.WriteLine("Elapsed time for optimization = {0} ms", timer.ElapsedMilliseconds);
 

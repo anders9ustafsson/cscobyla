@@ -58,6 +58,31 @@ namespace Cureos.Numerics
     /// </summary>
     public static class Cobyla2
     {
+        #region ENUMERATIONS
+
+        /// <summary>
+        /// Status of optimization upon return.
+        /// </summary>
+        public enum Status
+        {
+            /// <summary>
+            /// Optimization successfully completed.
+            /// </summary>
+            Normal,
+
+            /// <summary>
+            /// Maximum number of iterations (function/constraints evaluations) reached during optimization.
+            /// </summary>
+            MaxIterationsReached,
+
+            /// <summary>
+            /// Size of rounding error is becoming damaging, terminating prematurely.
+            /// </summary>
+            DivergingRoundingErrors
+        }
+
+        #endregion
+        
         #region FIELDS
 
         private static readonly string LF = Environment.NewLine;
@@ -74,18 +99,19 @@ namespace Cureos.Numerics
         /// <param name="calcfc">Method for calculating objective function and constraints.</param>
         /// <param name="n">Number of variables.</param>
         /// <param name="m">Number of constraints.</param>
-        /// <param name="xin">Initial values of the variables (zero-based array).</param>
+        /// <param name="x">On input initial values of the variables (zero-based array). On output
+        /// optimal values of the variables obtained in the COBYLA minimization.</param>
         /// <param name="rhobeg">Initial size of the simplex.</param>
         /// <param name="rhoend">Final value of the simplex.</param>
         /// <param name="iprint">Print level, 0 &lt;= iprint &lt;= 3, where 0 provides no output and
         /// 3 provides full output to the console.</param>
         /// <param name="maxfun">Maximum number of function evaluations before terminating.</param>
-        /// <returns>Optimal values of the variables obtained in the COBYLA minimization.</returns>
-        public static double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin, 
+        /// <returns>Return status of the COBYLA2 optimization.</returns>
+        public static Status Minimize(CalcfcDelegate calcfc, int n, int m, double[] x, 
             double rhobeg = 0.5, double rhoend = 1.0e-6, int iprint = 2, int maxfun = 3500)
         {
             var iters = maxfun;
-            return cobyla(calcfc, n, m, xin, rhobeg, rhoend, iprint, ref iters);
+            return cobyla(calcfc, n, m, x, rhobeg, rhoend, iprint, ref iters);
         }
 
         /// <summary>
@@ -97,7 +123,8 @@ namespace Cureos.Numerics
         /// <param name="calcfc">Method for calculating objective function and constraints.</param>
         /// <param name="n">Number of variables.</param>
         /// <param name="m">Number of constraints.</param>
-        /// <param name="xin">Initial values of the variables (zero-based array).</param>
+        /// <param name="x">On input initial values of the variables (zero-based array). On output
+        /// optimal values of the variables obtained in the COBYLA minimization.</param>
         /// <param name="rhobeg">Initial size of the simplex.</param>
         /// <param name="rhoend">Final value of the simplex.</param>
         /// <param name="iprint">Print level, 0 &lt;= iprint &lt;= 3, where 0 provides no output and
@@ -106,20 +133,20 @@ namespace Cureos.Numerics
         /// <param name="f">Objective function value at optimal variable values.</param>
         /// <param name="con">Constraints function values at optimal variable values.</param>
         /// <param name="iters">Performed number of function and constraints evaluations.</param>
-        /// <returns>Optimal values of the variables obtained in the COBYLA minimization.</returns>
-        public static double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin,
+        /// <returns>Return status of the COBYLA2 optimization.</returns>
+        public static Status Minimize(CalcfcDelegate calcfc, int n, int m, double[] x,
             double rhobeg, double rhoend, int iprint, int maxfun, out double f, out double[] con, out int iters)
         {
             iters = maxfun;
-            var xout = cobyla(calcfc, n, m, xin, rhobeg, rhoend, iprint, ref iters);
+            var status = cobyla(calcfc, n, m, x, rhobeg, rhoend, iprint, ref iters);
 
             con = new double[m];
-            calcfc(n, m, xout, out f, con);
+            calcfc(n, m, x, out f, con);
 
-            return xout;
+            return status;
         }
 
-        private static double[] cobyla(CalcfcDelegate calcfc, int n, int m, double[] xin, 
+        private static Status cobyla(CalcfcDelegate calcfc, int n, int m, double[] x, 
             double rhobeg, double rhoend, int iprint, ref int iters)
         {
             //     This subroutine minimizes an objective function F(X) subject to M
@@ -176,8 +203,8 @@ namespace Cureos.Numerics
             var mpp = m + 2;
 
             // Internal base-1 X array
-            var x = new double[n + 1];
-            Array.Copy(xin, 0, x, 1, n);
+            var xinout = new double[n + 1];
+            Array.Copy(x, 0, xinout, 1, n);
 
             // Internal representation of the objective and constraints calculation method, 
             // accounting for that X and CON arrays in the cobylb method are base-1 arrays.
@@ -191,15 +218,14 @@ namespace Cureos.Numerics
                         Array.Copy(ocon, 0, con, 1, mm);
                     });
 
-            cobylb(fcalcfc, n, m, mpp, x, rhobeg, rhoend, iprint, ref iters);
+            var status = cobylb(fcalcfc, n, m, mpp, xinout, rhobeg, rhoend, iprint, ref iters);
 
-            var xout = new double[n];
-            Array.Copy(x, 1, xout, 0, n);
+            Array.Copy(xinout, 1, x, 0, n);
 
-            return xout;
+            return status;
         }
 
-        private static void cobylb(CalcfcDelegate calcfc, int n, int m, int mpp, double[] x,
+        private static Status cobylb(CalcfcDelegate calcfc, int n, int m, int mpp, double[] x,
             double rhobeg, double rhoend, int iprint, ref int maxfun)
         {
             // N.B. Arguments CON, SIM, SIMI, DATMAT, A, VSIG, VETA, SIGBAR, DX, W & IACT
@@ -257,6 +283,8 @@ namespace Cureos.Numerics
             var jdrop = np;
             var ibrnch = false;
 
+            Status status;
+
             //     Make the next call of the user-supplied subroutine CALCFC. These
             //     instructions are also used for calling CALCFC during the iterations of
             //     the algorithm.
@@ -266,6 +294,7 @@ namespace Cureos.Numerics
             {
                 if (iprint >= 1)
                     Console.WriteLine(LF + "Return from subroutine COBYLA because the MAXFUN limit has been reached.");
+                status = Status.MaxIterationsReached;
                 goto L_600;
             }
 
@@ -394,6 +423,7 @@ namespace Cureos.Numerics
             {
                 if (iprint >= 1)
                     Console.WriteLine(LF + "Return from subroutine COBYLA because rounding errors are becoming damaging.");
+                status = Status.DivergingRoundingErrors;
                 goto L_600;
             }
 
@@ -681,6 +711,7 @@ namespace Cureos.Numerics
 
             //     Return the best calculated values of the variables.
 
+            status = Status.Normal;
             if (iprint >= 1) Console.WriteLine(LF + "Normal return from subroutine COBYLA");
             if (ifull) goto L_620;
 
@@ -697,6 +728,8 @@ namespace Cureos.Numerics
             }
 
             maxfun = nfvals;
+
+            return status;
         }
 
         private static void trstlp(int n, int m, double[,] a, double[] b, double rho, double[] dx, out bool ifull)

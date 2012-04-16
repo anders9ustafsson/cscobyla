@@ -34,25 +34,26 @@ function value and _con_ is the array of calculated constraints function values.
 
 To minimize the objective function subject to constraints, call one of the two overloaded _Cobyla2.Minimize_ methods:
 
-    double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin, 
+    Cobyla2.Status Minimize(CalcfcDelegate calcfc, int n, int m, double[] x, 
                       double rhobeg, double rhoend, int iprint, int maxfun, 
                       out double f, out double[] con, out int iters);
 
-    double[] Minimize(CalcfcDelegate calcfc, int n, int m, double[] xin, 
+    Cobyla2.Status Minimize(CalcfcDelegate calcfc, int n, int m, double[] x, 
                       double rhobeg, double rhoend, int iprint, int maxfun);
 
-where _xin_ is the initial variable array, _rhobeg_ and _rhoend_ are the initial and final values of the simplex, _iprint_ (0..3)
+where _x_ on input is the initial variable array, _rhobeg_ and _rhoend_ are the initial and final values of the simplex, _iprint_ (0..3)
 specifies the level of output to the console, _maxfun_ is the maximum allowed number of function evaluations, _f_ is the objective
 function value and _con_ the constraints function values at variables optimum and _iters_ is the actual number of function
-evaluations performed in the optimization. Both methods return the optimal obtained variable values.
+evaluations performed in the optimization. On output _x_ is the optimal obtained variable values. Both methods return final
+optimization status, which is one of normal termination, maximum iterations reached or diverging rounding errors.
 
 The latter of the two overloaded methods also implements default values as follows: _rhobeg_ = 0.5, _rhoend_ = 1.0e-6,
 _iprint_ = 2 and _maxfun_ = 3500. The method can thus optionally be called as follows, employing the default parameter values in the
 minimization:
 
-    var xout = Cobyla2.Minimize(calcfc, n, m, xin);
+    var status = Cobyla2.Minimize(calcfc, n, m, xin);
 
-The file Cobyla2.cs can be included as-is in any C# project, .NET Framework 4.0 or later.
+The file _Cobyla2.cs_ can be included as-is in any C# project, .NET Framework 4.0 or later, Silverlight 4 or later and Windows Phone 7.5 and later.
 
 ==The MIT License
 
@@ -72,6 +73,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==Revision history
 
-* April 15, 2012: Added a section on usage.
-* April 14, 2012: Added a more detailed presentation of the algorithm.  
+* April 16, 2012: Updated to reflect changes in API.
+* April 14, 2012: Added a section on usage.
+* April 13, 2012: Added a more detailed presentation of the algorithm.  
 * April 12, 2012: Initial document.
