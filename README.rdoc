@@ -1,6 +1,6 @@
 =cscobyla
 
-Constrained Optimization BY Linear Approximation for .NET
+<b>Constrained Optimization BY Linear Approximation for .NET</b>
 
 COBYLA2 is an implementation of Powell’s nonlinear derivative–free constrained optimization that uses a linear approximation approach. 
 The algorithm is a sequential trust–region algorithm that employs linear approximations to the objective and constraint functions, 
@@ -11,15 +11,16 @@ It solves nonsmooth NLP with a moderate number of variables (about 100). Inequal
 
 The initial point X is taken as one vertex of the initial simplex with zero being another, so, X should not be entered as the zero vector.
 
-==References
+==Links
 
-This is a C# version of Mike Powell's F77 implementation of COBYLA2, available at ftp://plato.la.asu.edu/pub/other_software/cobyla2.tar.gz
-
-The C# version is a straightforward translation of Alan Miller's F90 port, available at ftp://plato.la.asu.edu/pub/other_software/cobyla2_f90.tar.gz
-
-Mike Powell's paper on Direct Search methods is available at http://www.damtp.cam.ac.uk/user/na/NA_papers/NA1998_04.ps.gz
+* This is a C# version of Mike Powell's F77 implementation of COBYLA2, available at ftp://plato.la.asu.edu/pub/other_software/cobyla2.tar.gz
+* The C# version is a straightforward translation of Alan Miller's F90 port, available at ftp://plato.la.asu.edu/pub/other_software/cobyla2_f90.tar.gz
+* Mike Powell's paper on Direct Search methods is available at http://www.damtp.cam.ac.uk/user/na/NA_papers/NA1998_04.ps.gz
+* For derivative-free nonlinear optimization with variable bounds only, a C# port of the BOBYQA method can be found here: https://github.com/cureos/csbobyqa
 
 ==Usage
+
+The file _Cobyla2.cs_ can be included as-is in any C# project, .NET Framework 4.0 or later, Silverlight 4 or later and Windows Phone 7.5 and later.
 
 The C# implementation is relatively faithful to the original Fortran 77 and 90 implementations. It should be noted however that the  
 indexing of the variables and constraints arrays in the _public_ interface is zero-based, i.e. for a problem with 3 variables, x[0],
@@ -53,8 +54,6 @@ minimization:
 
     var status = Cobyla2.Minimize(calcfc, n, m, xin);
 
-The file _Cobyla2.cs_ can be included as-is in any C# project, .NET Framework 4.0 or later, Silverlight 4 or later and Windows Phone 7.5 and later.
-
 ==The MIT License
 
 Copyright (c) 2012 Anders Gustafsson, Cureos AB.
@@ -73,6 +72,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==Revision history
 
+* April 20, 2012: Included link to csbobyqa
 * April 16, 2012: Updated to reflect changes in API.
 * April 14, 2012: Added a section on usage.
 * April 13, 2012: Added a more detailed presentation of the algorithm.  
