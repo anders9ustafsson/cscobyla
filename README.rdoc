@@ -17,6 +17,7 @@ The initial point X is taken as one vertex of the initial simplex with zero bein
 * The C# version is a straightforward translation of Alan Miller's F90 port, available at ftp://plato.la.asu.edu/pub/other_software/cobyla2_f90.tar.gz
 * Mike Powell's paper on Direct Search methods is available at http://www.damtp.cam.ac.uk/user/na/NA_papers/NA1998_04.ps.gz
 * For derivative-free nonlinear optimization with variable bounds only, a C# port of the BOBYQA method can be found here: https://github.com/cureos/csbobyqa
+* A Java version of COBYLA2 can be found here: https://github.com/cureos/jcobyla
 
 ==Usage
 
@@ -72,7 +73,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==Revision history
 
-* April 20, 2012: Included link to csbobyqa
+* May 2, 2012: Included link to jcobyla.
+* April 20, 2012: Included link to csbobyqa.
 * April 16, 2012: Updated to reflect changes in API.
 * April 14, 2012: Added a section on usage.
 * April 13, 2012: Added a more detailed presentation of the algorithm.  
