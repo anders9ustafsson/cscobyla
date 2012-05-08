@@ -92,8 +92,8 @@ namespace Cscobyla.Tests
 
             var timer = new Stopwatch();
             timer.Restart();
-            Assert.That(Cobyla2.Minimize(calcfc, n, m, x, rhobeg, rhoend, iprint, maxfun),
-                        Is.EqualTo(Cobyla2.Status.Normal).Or.EqualTo(Cobyla2.Status.MaxIterationsReached));
+            Assert.That(Cobyla.FindMinimum(calcfc, n, m, x, rhobeg, rhoend, iprint, maxfun),
+                        Is.EqualTo(CobylaExitStatus.Normal).Or.EqualTo(CobylaExitStatus.MaxIterationsReached));
             timer.Stop();
 
             var error = xopt.Select((xo, i) => Math.Pow(xo - x[i], 2.0)).Sum();
@@ -222,6 +222,12 @@ namespace Cscobyla.Tests
             con[13] = x[8];
         }
 
+        [Test]
+        public void FindMinimum_LogOutputToConsole_VisualInspection()
+        {
+            var x = Enumerable.Repeat(1.0, 9).ToArray();
+            var actual = Cobyla.FindMinimum(calcfc10, 9, 14, x, rhobeg, rhoend1, 2, maxfun, Console.Out);
+        }
         #endregion
     }
 }
