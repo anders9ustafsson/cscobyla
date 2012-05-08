@@ -5,3 +5,4 @@ _ReSharper.cscobyla/
 bin/
 obj/
 packages/
+*.ncrunchsolution

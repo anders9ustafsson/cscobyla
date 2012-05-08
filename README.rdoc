@@ -54,7 +54,7 @@ The latter of the two overloaded methods also implements default values as follo
 _iprint_ = 2, _maxfun_ = 3500 and _logger_ = _null_. The method can thus optionally be called as follows, employing the default parameter 
 values in the minimization:
 
-    var status = Cobyla.FindMinimum(calcfc, n, m, xin);
+    var status = Cobyla.FindMinimum(calcfc, n, m, x);
 
 ==The MIT License
 
